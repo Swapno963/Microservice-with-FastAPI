@@ -1,0 +1,82 @@
+# General
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+*.log
+*.env
+.env.*
+.envrc
+.env.bak
+*.sqlite3
+
+# VS Code
+.vscode/
+
+# Python virtual environments
+venv-microservice/
+ENV/
+
+# Django
+*.db
+*.sqlite3
+/staticfiles/
+/media/
+/*.log
+
+# FastAPI / Pydantic
+*.migrations/
+instance/
+*.egg-info/
+
+# Node.js / React / Next.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.next/
+out/
+dist/
+build/
+.cache/
+
+# Docker
+**/__pycache__/
+docker-compose.override.yml
+docker-compose.dev.yml
+.docker/
+
+# Coverage & Testing
+.coverage
+coverage.xml
+htmlcov/
+.tox/
+.pytest_cache/
+nosetests.xml
+test.db
+tests/__pycache__/
+
+# Database dumps
+*.sql
+*.dump
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# IDEs
+.idea/
+*.iml
+*.sublime-workspace
+*.sublime-project
+
+# Optional: ignore specific secrets or private keys
+*.pem
+*.key
+*.crt
+*.csr
