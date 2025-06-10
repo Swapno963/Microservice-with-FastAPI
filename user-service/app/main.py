@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 # from app.api.routes import users, auth
 from app.core.config import settings
 from app.db.postgresql import initialize_db, close_db_connection
+from app.api.routes import auth
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -24,7 +25,7 @@ app.add_middleware(
 )
 
 # Set up API routes
-# app.include_router(auth.router, prefix=settings.API_PREFIX)
+app.include_router(auth.router, prefix=settings.API_PREFIX)
 # app.include_router(users.router, prefix=settings.API_PREFIX)
 
 # Register startup and shutdown events
