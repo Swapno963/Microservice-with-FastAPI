@@ -11,6 +11,7 @@ from app.models.users import (
     AddressResponse,
     UserUpdate,
     UserChangePassword,
+    AddressCreate,
 )
 from app.core.security import verify_password, get_password_hash
 
@@ -121,3 +122,61 @@ async def change_password(
     await db.commit()
 
     return {"message": "Password changed successfully"}
+
+
+@router.post(
+    "/me/addresses", response_model=AddressResponse, status_code=status.HTTP_201_CREATED
+)
+async def create_user_address(
+    address: AddressCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Any:
+    """Create a new addresss for the current user"""
+    is_first_address = False
+    if address.is_default:
+        # Check if the user already has a default address
+        result = await db.execute(
+            select(Address).where(
+                Address.user_id == current_user.id, Address.is_default == True
+            )
+        )
+        current_default = result.scalars().first()
+
+        if current_default:
+            # Remove the current default flag from the current  default address
+            current_default.is_default = False
+
+    else:
+        # Check if this is the first address (make it default automatically)
+        result = await db.execute(
+            select(Address).where(Address.user_id == current_user.id)
+        )
+        if not result.scalars().first():
+            is_first_address = True
+            # Create the new address
+    db_address = Address(
+        user_id=current_user.id,
+        line1=address.line1,
+        line2=address.line2,
+        city=address.city,
+        state=address.state,
+        postal_code=address.postal_code,
+        country=address.country,
+        is_default=address.is_default or is_first_address,
+    )
+
+    db.add(db_address)
+    await db.commit()
+    await db.refresh(db_address)
+
+    return AddressResponse(
+        id=db_address.id,
+        line1=db_address.line1,
+        line2=db_address.line2,
+        city=db_address.city,
+        state=db_address.state,
+        postal_code=db_address.postal_code,
+        country=db_address.country,
+        is_default=db_address.is_default,
+    )

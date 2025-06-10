@@ -179,3 +179,9 @@ class UserChangePassword(BaseModel):
         if not re.search(r"[0-9]", v):
             raise ValueError("Password must contain at least one digit")
         return v
+
+
+class AddressCreate(AddressBase):
+    """Model for creating a new address."""
+
+    pass
