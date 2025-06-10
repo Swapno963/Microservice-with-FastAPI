@@ -153,3 +153,11 @@ class TokenData(BaseModel):
     """Model for token data."""
 
     user_id: Optional[int] = None
+
+
+class UserUpdate(BaseModel):
+    """Model for updating user information."""
+
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    phone: Optional[str] = None
