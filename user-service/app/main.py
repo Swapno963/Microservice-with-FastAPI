@@ -1,42 +1,41 @@
 from fastapi import FastAPI
-from app.core.config import settings
 from fastapi.middleware.cors import CORSMiddleware
+
+# from app.api.routes import users, auth
+from app.core.config import settings
+from app.db.postgresql import initialize_db, close_db_connection
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
-    description=" User Service API",
+    description="User Service API",
     version="1.0.0",
     openapi_url=f"{settings.API_PREFIX}/openapi.json",
     docs_url=f"{settings.API_PREFIX}/docs",
     redoc_url=f"{settings.API_PREFIX}/redoc",
 )
 
-
 # Set up CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins for development; adjust in production
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["*"],  # Allow all methods (GET, POST, PUT, DELETE, etc.)
-    allow_headers=["*"],  # Allow all headers
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-
-# Set up api routes
-
+# Set up API routes
+# app.include_router(auth.router, prefix=settings.API_PREFIX)
+# app.include_router(users.router, prefix=settings.API_PREFIX)
 
 # Register startup and shutdown events
+app.add_event_handler("startup", initialize_db)
+app.add_event_handler("shutdown", close_db_connection)
 
 
 # Health check endpoint
-@app.get(
-    "/health",
-)
+@app.get("/health")
 async def health_check():
-    """
-    Health check endpoint to verify the service is running.
-    """
-    return {"status": "ok", "message": "User Service is running"}
+    return {"status": "ok", "service": "user-service"}
 
 
 if __name__ == "__main__":

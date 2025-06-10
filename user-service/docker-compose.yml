@@ -15,7 +15,8 @@ services:
       - postgres-user
     networks:
       - user-network
-  
+      # - microservice-network
+
   postgres-user:
     image: postgres:13
     environment:
@@ -23,18 +24,17 @@ services:
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=user_db
     ports:
-      - "5432:5432"
+      - "5433:5432"  # Use a different port to avoid conflicts
     volumes:
       - postgres_user_data:/var/lib/postgresql/data
     networks:
-      user-network: 
+      - user-network
 
 networks:
   user-network:
     driver: bridge
+  # microservice-network:
+  #   external: true  # Connect to the existing microservice network
 
 volumes:
   postgres_user_data:
-
-  
-
