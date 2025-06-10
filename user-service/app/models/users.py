@@ -161,3 +161,21 @@ class UserUpdate(BaseModel):
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     phone: Optional[str] = None
+
+
+class UserChangePassword(BaseModel):
+    """Model for changing password."""
+
+    current_password: str
+    new_password: constr(min_length=8)
+
+    @validator("new_password")
+    def password_strength(cls, v):
+        """Validate password strength."""
+        if not re.search(r"[A-Z]", v):
+            raise ValueError("Password must contain at least one uppercase letter")
+        if not re.search(r"[a-z]", v):
+            raise ValueError("Password must contain at least one lowercase letter")
+        if not re.search(r"[0-9]", v):
+            raise ValueError("Password must contain at least one digit")
+        return v
