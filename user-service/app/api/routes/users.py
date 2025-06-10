@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Path, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.api.dependencies import get_current_user, get_db
+from app.api.dependencies import get_current_user, get_db, get_user_by_id
 from typing import List, Any, Dict, Optional
 from sqlalchemy.future import select
 from app.models.users import (
@@ -240,3 +240,25 @@ async def get_user_address(
         country=address.country,
         is_default=address.is_default,
     )
+
+
+# Most importend element of microservice
+@router.get("/{user_id}/verify", response_model=Dict[str, Any])
+async def verify_user_exists(
+    user_id: int, db: AsyncSession = Depends(get_db)
+) -> Dict[str, Any]:
+    """verify if a user exists and is active.
+    This endpoint is used by other services to validate users
+    """
+
+    user = await get_user_by_id(db, user_id)
+
+    if not user or not user.is_active:
+        return {"valid": False}
+
+    return {
+        "valid": True,
+        "user_id": user.id,
+        "email": user.email,
+        "full_name": f"{user.first_name} {user.last_name}",
+    }
