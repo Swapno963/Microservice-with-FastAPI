@@ -180,3 +180,63 @@ async def create_user_address(
         country=db_address.country,
         is_default=db_address.is_default,
     )
+
+
+@router.get("/me/addresses", response_model=List[AddressResponse])
+async def get_user_addresses(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Any:
+    """
+    Get all addresses for the current user.
+    """
+    result = await db.execute(select(Address).where(Address.user_id == current_user.id))
+    addresses = result.scalars().all()
+
+    return [
+        AddressResponse(
+            id=addr.id,
+            line1=addr.line1,
+            line2=addr.line2,
+            city=addr.city,
+            state=addr.state,
+            postal_code=addr.postal_code,
+            country=addr.country,
+            is_default=addr.is_default,
+        )
+        for addr in addresses
+    ]
+
+
+@router.get("/me/addresses/{address_id}", response_model=AddressResponse)
+async def get_user_address(
+    address_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Any:
+    """
+    Get a specific address for the current user.
+    """
+    result = await db.execute(
+        select(Address).where(
+            Address.id == address_id, Address.user_id == current_user.id
+        )
+    )
+    address = result.scalars().first()
+
+    if not address:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Address with ID {address_id} not found",
+        )
+
+    return AddressResponse(
+        id=address.id,
+        line1=address.line1,
+        line2=address.line2,
+        city=address.city,
+        state=address.state,
+        postal_code=address.postal_code,
+        country=address.country,
+        is_default=address.is_default,
+    )
