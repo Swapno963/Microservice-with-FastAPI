@@ -47,3 +47,36 @@ async def create_product(
     #     logger.error(f"Error creating inventory for product {result.inserted_id}: {str(e)}")
 
     return created_product
+
+
+@router.get("/", response_model=List[ProductResponse])
+async def get_products(
+    skip: int = Query(0, ge=0, description="Number of products to skip"),
+    limit: int = Query(
+        100, ge=1, le=100, description="Max number of products to return"
+    ),
+    category: Optional[str] = Query(None, description="Filter by category"),
+    name: Optional[str] = Query(None, description="Search by name (case insensitive)"),
+    min_price: Optional[float] = Query(None, ge=0, description="Minimum price filter"),
+    max_price: Optional[float] = Query(None, ge=0, description="Maximum price filter"),
+    db: AsyncIOMotorDatabase = Depends(get_db),
+):
+    """
+    Get all products with optional filtering.
+    """
+    query = {}
+    if category:
+        query["category"] = category
+    if name:
+        query["name"] = {"$regex": name, "$options": "i"}  # Case insensative search
+    if min_price is not None or max_price is not None:
+        query["price"] = {}
+        if min_price is not None:
+            query["price"]["$gte"] = min_price
+        if max_price is not None:
+            query["price"]["$lte"] = max_price
+
+    cursor = db["products"].find(query).skip(skip).limit(limit)
+    products = await cursor.to_list(length=limit)
+
+    return products
