@@ -80,3 +80,59 @@ async def get_products(
     products = await cursor.to_list(length=limit)
 
     return products
+
+
+@router.get("/{product_id}", response_model=ProductResponse)
+async def get_product(
+    product_id: str = Path(..., description="The ID of the product to retrieve"),
+    db: AsyncIOMotorDatabase = Depends(get_db),
+):
+    """
+    Get a single product by ID.
+    """
+    try:
+        product_obj_id = PyObjectId(product_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid product ID format")
+
+    product = await db["products"].find_one({"_id": product_obj_id})
+    if product:
+        return product
+
+    raise HTTPException(
+        status_code=404, detail=f"Product with ID {product_id} not found"
+    )
+
+
+@router.put("/{product_id}", response_model=ProductResponse)
+async def update_product(
+    product_id: str,
+    product: ProductUpdate,
+    db: AsyncIOMotorDatabase = Depends(get_db),
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
+    """
+    Update a product by ID.
+    """
+    try:
+        product_obj_id = PyObjectId(product_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid product ID format")
+
+    update_data = {k: v for k, v in product.dict().items() if v is not None}
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No fields to update")
+
+    product = await db["products"].find_one_and_update(
+        {"_id": product_obj_id},
+        {"$set": update_data},
+        return_document=ReturnDocument.AFTER,
+    )
+
+    if product:
+        logger.info(f"Updated product: {product_id}")
+        return product
+
+    raise HTTPException(
+        status_code=404, detail=f"Product with ID {product_id} not found"
+    )
