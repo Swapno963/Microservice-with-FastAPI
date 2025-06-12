@@ -115,3 +115,54 @@ async def get_inventory_items(
     items = result.scalars().all()
 
     return items
+
+
+@router.get("/check", response_model=Dict[str, Any])
+async def check_inventory(
+    product_id: str = Query(..., description="Product ID to check"),
+    quantity: int = Query(..., gt=0, description="Quantity to check"),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Check if a product has sufficient available inventory.
+    """
+    query = select(InventoryItem).where(InventoryItem.product_id == product_id)
+    result = await db.execute(query)
+    item = result.scalars().first()
+
+    if not item:
+        return {
+            "available": False,
+            "message": f"Product {product_id} not found in inventory",
+        }
+
+    is_available = item.available_quantity >= quantity
+
+    return {
+        "available": is_available,
+        "current_quantity": item.available_quantity,
+        "requested_quantity": quantity,
+        "product_id": product_id,
+    }
+
+
+@router.get("/{product_id}", response_model=InventoryItemResponse)
+async def get_inventory_item(
+    product_id: str = Path(..., description="The product ID"),
+    db: AsyncSession = Depends(get_db),
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
+    """
+    Get inventory for a specific product.
+    """
+    query = select(InventoryItem).where(InventoryItem.product_id == product_id)
+    result = await db.execute(query)
+    item = result.scalars().first()
+
+    if not item:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Inventory for product {product_id} not found",
+        )
+
+    return item
