@@ -88,3 +88,30 @@ async def create_inventory_item(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Inventory item for product {item.product_id} already exists",
         )
+
+
+@router.get("/", response_model=List[InventoryItemResponse])
+async def get_inventory_items(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=100),
+    low_stock_only: bool = Query(
+        False, description="Filter to show only low stock items"
+    ),
+    db: AsyncSession = Depends(get_db),
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
+    """
+    Get all inventory items with optional filtering.
+    """
+    query = select(InventoryItem)
+
+    if low_stock_only:
+        query = query.where(
+            InventoryItem.available_quantity <= InventoryItem.reorder_threshold
+        )
+
+    query = query.offset(skip).limit(limit)
+    result = await db.execute(query)
+    items = result.scalars().all()
+
+    return items
