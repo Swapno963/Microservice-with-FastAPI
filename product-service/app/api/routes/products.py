@@ -136,3 +136,36 @@ async def update_product(
     raise HTTPException(
         status_code=404, detail=f"Product with ID {product_id} not found"
     )
+
+
+@router.delete("/{product_id}", status_code=204)
+async def delete_product(
+    product_id: str,
+    db: AsyncIOMotorDatabase = Depends(get_db),
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
+    """
+    Delete a product by ID.
+    """
+    try:
+        product_obj_id = PyObjectId(product_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid product ID format")
+
+    result = await db["products"].delete_one({"_id": product_obj_id})
+    if result.deleted_count:
+        logger.info(f"Deleted product: {product_id}")
+        return None
+
+    raise HTTPException(
+        status_code=404, detail=f"Product with ID {product_id} not found"
+    )
+
+
+@router.get("/category/list", response_model=List[str])
+async def get_categories(db: AsyncIOMotorDatabase = Depends(get_db)):
+    """
+    Get all unique product categories.
+    """
+    categories = await db["products"].distinct("category")
+    return categories
