@@ -1,5 +1,5 @@
 import logging
-from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi import APIRouter, Depends, Query, HTTPException, Path
 from app.models.product import ProductResponse, ProductCreate, PyObjectId, ProductUpdate
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from app.api.dependencies import get_db, get_current_user
@@ -25,8 +25,14 @@ async def create_product(
     """
     product_dict = product.dict()
 
-    result = await db["PRODUCTS"].insert_one(product_dict)
-    created_product = await db[:"products"].find_one({"_id": result.inserted_id})
+    result = await db["products"].insert_one(product_dict)
+    print(f"result is: {result}")
+    created_product = await db["products"].find_one({"_id": result.inserted_id})
+
+    if not created_product:
+        raise HTTPException(status_code=500, detail="Product creation failed")
+
+    logger.info(f"Created product: {result.inserted_id}")
 
     logger.info(f"Created product: {result.inserted_id}")
 
