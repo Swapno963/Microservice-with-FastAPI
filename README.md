@@ -156,3 +156,17 @@ Used for caching, sessions, or simple data retrieval.
 ❌ Avoid When:
 You need complex querying or data relationships.
 
+
+
+
+5. Graph Databases
+Examples: Neo4j, ArangoDB
+
+✅ Use When:
+You need to model and query complex relationships.
+
+Relationship traversal is central to your queries (e.g., social networks).
+
+❌ Avoid When:
+You don’t have complex relationships to model.
+
