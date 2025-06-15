@@ -99,4 +99,15 @@ Enrollments
 Professors
 
 
+Avoid When:
+Your schema changes frequently.
+You need to scale writes horizontally without sharding.
+You want to handle a lot of write operations (inserts/updates/deletes) by simply adding more machines (horizontally), and you don't want the complexity of manually splitting data across them (sharding).
+
+NoSQL solutions like Cassandra or MongoDB:
+Let you distribute writes across many nodes automatically
+Handle horizontal scaling better out of the box
+
+
+
 ### Postgress: We use it if data is lenier
