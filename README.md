@@ -99,7 +99,7 @@ Enrollments
 Professors
 
 
-Avoid When:
+❌ Avoid When:
 Your schema changes frequently.
 You need to scale writes horizontally without sharding.
 You want to handle a lot of write operations (inserts/updates/deletes) by simply adding more machines (horizontally), and you don't want the complexity of manually splitting data across them (sharding).
@@ -110,4 +110,15 @@ Handle horizontal scaling better out of the box
 
 
 
-### Postgress: We use it if data is lenier
+### 2. Document Databases (NoSQL)
+Examples: MongoDB, Couchbase
+
+✅ Use When:
+You have semi-structured or unstructured data (e.g., nested JSON).
+
+Schema changes frequently.
+
+You need fast reads/writes and can tolerate eventual consistency.
+
+❌ Avoid When:
+You require complex joins or transactions across collections.
