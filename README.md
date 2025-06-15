@@ -39,5 +39,64 @@ cd Microservice-with-FastAPI
 docker-compose up --build
 ```
 
-### Mongo db: We use mongodb if data is nested
+### Relational Databases (SQL)
+Examples: PostgreSQL, MySQL, MariaDB
+1. Data is Structured with Clear Relationships
+Relational databases use tables, and each table has columns and rows. When your data has a predictable schema (e.g., users, orders, products) and clear relationships (like one-to-many, many-to-many), relational databases are the best fit.
+
+These tables are clearly connected: one user → many orders, one order → many items, etc.
+
+
+
+2. You Need ACID Transactions
+Explanation:
+ACID stands for:
+
+Atomicity: All parts of a transaction succeed or fail together.
+Consistency: Data remains valid after any transaction.
+Isolation: Transactions don’t interfere with each other.
+Durability: Data is saved permanently once a transaction is committed.
+
+Using an ACID-compliant database like PostgreSQL ensures that either both happen or neither happens — you won't lose or create money accidentally.
+
+
+
+3. You Want Strong Data Consistency
+Explanation:
+Relational databases ensure that once data is written, reads will reflect the latest write. There’s no “eventual consistency” like in some NoSQL databases.
+
+What is Eventual Consistency (NoSQL)?
+Many NoSQL databases (like MongoDB, DynamoDB, Cassandra, Couchbase) use eventual consistency — especially in distributed setups.
+
+🧠 It means: After a write, it may take time for all nodes (or replicas) to reflect the new value.
+
+During that time, some reads might return old data.
+
+🔍 Example: Eventual Consistency in NoSQL (MongoDB Replica Set or Cassandra)
+Assume you have:
+
+A MongoDB cluster with 1 primary and 2 secondary nodes.
+
+Writes go to the primary.
+
+Reads can happen from secondaries (depending on config).
+
+
+
+
+4. Complex Queries or Joins Are Common
+Explanation:
+SQL in relational databases supports powerful queries, including joins, filtering, grouping, aggregations, subqueries, etc.
+
+Real-World Example:
+A university system:
+
+To get a list of all students enrolled in a particular course along with their grades and professor names, you might join:
+
+Students
+Courses
+Enrollments
+Professors
+
+
 ### Postgress: We use it if data is lenier
