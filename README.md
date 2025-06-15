@@ -127,6 +127,21 @@ You require complex joins or transactions across collections.
 
 
 
+4. Wide-Column Stores
+Examples: Apache Cassandra, HBase
+
+✅ Use When:
+You have high write throughput.
+
+You need to scale horizontally and handle massive amounts of data.
+
+You can design queries in advance (query-based modeling).
+
+❌ Avoid When:
+Your access patterns are unpredictable.
+
+You need relational integrity.
+
 
 3. Key-Value Stores
 Examples: Redis, DynamoDB
