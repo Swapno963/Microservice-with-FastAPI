@@ -38,3 +38,6 @@ cd Microservice-with-FastAPI
 # Build and start all services
 docker-compose up --build
 ```
+
+### Mongo db: We use mongodb if data is nested
+### Postgress: We use it if data is lenier
