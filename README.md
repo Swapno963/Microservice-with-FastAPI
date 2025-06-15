@@ -170,3 +170,18 @@ Relationship traversal is central to your queries (e.g., social networks).
 ❌ Avoid When:
 You don’t have complex relationships to model.
 
+
+
+
+
+6. Search Engines (Search Databases)
+Examples: Elasticsearch, MeiliSearch
+
+✅ Use When:
+You need full-text search, filtering, and ranking.
+
+You want fast and complex search capabilities.
+
+❌ Avoid When:
+You need transactional updates or strict consistency.
+
