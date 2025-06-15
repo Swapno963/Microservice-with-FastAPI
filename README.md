@@ -122,3 +122,22 @@ You need fast reads/writes and can tolerate eventual consistency.
 
 ❌ Avoid When:
 You require complex joins or transactions across collections.
+
+
+
+
+
+
+3. Key-Value Stores
+Examples: Redis, DynamoDB
+
+✅ Use When:
+You need super-fast reads/writes.
+
+Data access is simple (key → value).
+
+Used for caching, sessions, or simple data retrieval.
+
+❌ Avoid When:
+You need complex querying or data relationships.
+
