@@ -1,4 +1,4 @@
-# 🧩 Microservice Application
+# Microservice Application
 
 This is a full-stack microservice-based application built using:
 
@@ -7,7 +7,7 @@ This is a full-stack microservice-based application built using:
 - **Databases**: PostgreSQL and MongoDB
 - **Containerization**: Docker (multi-stage Dockerfiles)
 
-## 🧱 Project Structure
+## Project Structure
 - **User Service**: Handles authentication, registration, and user management.
 - **Inventory Service**: Manages stock levels, warehouses, and inventory operations.
 - **Product Service**: Maintains product data, categories, and pricing.
@@ -15,7 +15,7 @@ This is a full-stack microservice-based application built using:
 
 Each microservice is containerized using a **multi-stage Dockerfile** for optimized production builds.
 
-## 🚀 Features
+## Features
 
 - Authentication and Authorization
 - RESTful APIs (FastAPI, Django REST Framework)
@@ -24,7 +24,7 @@ Each microservice is containerized using a **multi-stage Dockerfile** for optimi
 - Dockerized with multi-stage builds
 - Scalable and modular microservice architecture
 
-## 🐳 Docker Setup
+## Docker Setup
 
 ### Prerequisites
 
