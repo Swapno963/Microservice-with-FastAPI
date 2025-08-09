@@ -38,3 +38,24 @@ cd Microservice-with-FastAPI
 # Build and start all services
 docker-compose up --build
 ```
+
+
+
+
+# User Microservice
+
+A dedicated microservice for managing all user-related functionality. This service handles user authentication, profile management, and account security.
+
+### Features
+
+This microservice includes the following key functionalities:
+
+* **Registration:** New user account creation.
+* **Login:** User authentication to grant access.
+* **Token Management:** Ability to get a new access token using a refresh token.
+* **User Profile:** Retrieve and update user profile information.
+* **Password Management:** Securely change user passwords.
+* **Address Management:** Create and manage user addresses.
+* **Account Verification:** Verify if a user account already exists.
+
+![A screenshot of the User Microservice](project-screenshot/User%20Service.png)
