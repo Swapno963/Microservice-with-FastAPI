@@ -48,6 +48,7 @@ docker-compose up --build
 # User Microservice
 
 A dedicated microservice for managing all user-related functionality. This service handles user authentication, profile management, and account security.
+postgres is used as database.
 
 ### Features
 
@@ -68,7 +69,7 @@ This microservice includes the following key functionalities:
 # Product Microservice
 
 A microservice for managing all product-related functionality. This service handles product creation, update.
-
+Mongodb is used as database.
 ### Features
 
 This microservice includes the following key functionalities:
