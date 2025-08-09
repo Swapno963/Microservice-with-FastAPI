@@ -15,7 +15,7 @@ services:
       - postgres
     networks:
       - inventory-network
-      - microservice-network
+      # - microservice-network
 
   postgres:
     image: postgres:13
@@ -27,14 +27,14 @@ services:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=inventory_db
-    networks:
-      - inventory-network
+    # networks:
+    #   - inventory-network
 
 networks:
   inventory-network:
     driver: bridge
-  microservice-network:
-    external: true  # Connect to the existing microservice network
+  # microservice-network:
+  #   external: true  # Connect to the existing microservice network
 
 volumes:
   postgres_data:
