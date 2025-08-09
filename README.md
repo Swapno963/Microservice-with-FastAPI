@@ -62,3 +62,21 @@ This microservice includes the following key functionalities:
 * **Account Verification:** Verify if a user account already exists.
 
 ![A screenshot of the User Microservice](project-screenshot/User%20Service.png)
+
+
+
+# Product Microservice
+
+A microservice for managing all product-related functionality. This service handles product creation, update.
+
+### Features
+
+This microservice includes the following key functionalities:
+
+* **Products:** Get all the products
+* **product:** Create Product
+* **Product<id>:** See Detail/Update/Delete product
+* **Category:** Get category list.
+
+
+![A screenshot of the User Microservice](project-screenshot/Product%20Servicce.png)
