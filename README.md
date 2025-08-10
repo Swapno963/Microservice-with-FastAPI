@@ -81,3 +81,11 @@ This microservice includes the following key functionalities:
 
 
 ![A screenshot of the User Microservice](project-screenshot/Product%20Servicce.png)
+
+
+
+
+# Inventory Microservice
+
+This handel inventory-related functionality. This service handles Create Inventory, Check Inventory, Update inventory and keeping inventory history, Reserve inventory quantiry and keeping history of it,Relese inventory quantiry and keeping history of it,.
+Postgres is used as database.
