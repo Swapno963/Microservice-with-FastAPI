@@ -339,3 +339,78 @@ async def reserve_inventory(
         "available_quantity": new_available,
         "reserved_quantity": new_reserved,
     }
+
+
+@router.post("/release", response_model=Dict[str, Any])
+async def release_inventory(
+    release: InventoryRelease,
+    db: AsyncSession = Depends(get_db),
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
+    """
+    Release previously reserved inventory.
+
+    This will:
+    1. Check if inventory exists and has sufficient reserved quantity
+    2. Reduce reserved quantity and increase available quantity
+    3. Create a history entry
+    """
+    # Check if inventory exists
+    query = select(InventoryItem).where(InventoryItem.product_id == release.product_id)
+    result = await db.execute(query)
+    item = result.scalars().first()
+
+    if not item:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Inventory for product {release.product_id} not found",
+        )
+
+    if item.reserved_quantity < release.quantity:
+        # We'll still allow the release, but cap it at the available reserved quantity
+        logger.warning(
+            f"Attempted to release more than reserved. Requested: {release.quantity}, "
+            f"Reserved: {item.reserved_quantity}. Capping at reserved amount."
+        )
+        release.quantity = item.reserved_quantity
+
+    # Update inventory
+    new_available = item.available_quantity + release.quantity
+    new_reserved = item.reserved_quantity - release.quantity
+
+    query = (
+        update(InventoryItem)
+        .where(InventoryItem.product_id == release.product_id)
+        .values(
+            available_quantity=new_available,
+            reserved_quantity=new_reserved,
+            updated_at=func.now(),
+        )
+        .returning(InventoryItem)
+    )
+
+    result = await db.execute(query)
+    updated_item = result.scalars().first()
+
+    # Add history record
+    history_entry = InventoryHistory(
+        product_id=release.product_id,
+        quantity_change=release.quantity,
+        previous_quantity=item.available_quantity,
+        new_quantity=new_available,
+        change_type="release",
+        reference_id=release.order_id,
+    )
+    db.add(history_entry)
+
+    await db.commit()
+
+    logger.info(f"Released {release.quantity} units of product {release.product_id}")
+
+    return {
+        "released": True,
+        "product_id": release.product_id,
+        "quantity": release.quantity,
+        "available_quantity": new_available,
+        "reserved_quantity": new_reserved,
+    }
