@@ -166,3 +166,25 @@ async def get_inventory_item(
         )
 
     return item
+
+
+@router.get("/{product_id}", response_model=InventoryItemResponse)
+async def get_inventory_item(
+    product_id: str = Path(..., description="THe Product ID"),
+    db: AsyncSession = Depends(get_db),
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
+    """
+    Get inventory for a specific product.
+    """
+    query = select(InventoryItem).where(InventoryItem.product_id == product_id)
+    result = await db.execute(query)
+    item = result.scalars().first()
+
+    if not item:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Inventory for product {product_id} not found",
+        )
+
+    return item
