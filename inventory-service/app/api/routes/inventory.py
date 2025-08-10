@@ -188,3 +188,154 @@ async def get_inventory_item(
         )
 
     return item
+
+
+@router.put("/{product_id}", response_model=InventoryItemResponse)
+async def update_inventory_item(
+    product_id: str,
+    item_update: InventoryItemUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: Dict[str, Any] = Depends(
+        is_admin
+    ),  # Only admins can update inventory
+):
+    """
+    Update inventory item for a product.
+    """
+    # Check if item exists
+    query = select(InventoryItem).where(InventoryItem.product_id == product_id)
+    result = await db.execute(query)
+    existing_item = result.scalars().first()
+
+    if not existing_item:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Inventory for product {product_id} not found",
+        )
+
+    # Build update dictionary with only provided fields
+    update_data = {}
+    previous_quantity = existing_item.available_quantity
+
+    if item_update.available_quantity is not None:
+        update_data["available_quantity"] = item_update.available_quantity
+
+    if item_update.reserved_quantity is not None:
+        update_data["reserved_quantity"] = item_update.reserved_quantity
+
+    if item_update.reorder_threshold is not None:
+        update_data["reorder_threshold"] = item_update.reorder_threshold
+
+    update_data["updated_at"] = func.now()
+
+    # Update the item
+    query = (
+        update(InventoryItem)
+        .where(InventoryItem.product_id == product_id)
+        .values(**update_data)
+        .returning(InventoryItem)
+    )
+
+    result = await db.execute(query)
+    updated_item = result.scalars().first()
+
+    # Add history record if quantity changed
+    if "available_quantity" in update_data:
+        quantity_change = update_data["available_quantity"] - previous_quantity
+        history_entry = InventoryHistory(
+            product_id=product_id,
+            quantity_change=quantity_change,
+            previous_quantity=previous_quantity,
+            new_quantity=update_data["available_quantity"],
+            change_type="update",
+            reference_id=None,
+        )
+        db.add(history_entry)
+
+    await db.commit()
+
+    # Check for low stock and send notification if needed
+    await check_and_notify_low_stock(updated_item)
+
+    logger.info(f"Updated inventory for product {product_id}")
+    return updated_item
+
+
+@router.post("/reserve", response_model=Dict[str, Any])
+async def reserve_inventory(
+    reservation: InventoryReserve,
+    db: AsyncSession = Depends(get_db),
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
+    """
+    Reserve inventory for an order.
+
+    This will:
+    1. Check if inventory is available
+    2. Reduce available quantity and increase reserved quantity
+    3. Create a history entry
+    """
+    # Check if inventory exists and has sufficient quantity
+    query = select(InventoryItem).where(
+        InventoryItem.product_id == reservation.product_id
+    )
+    result = await db.execute(query)
+    item = result.scalars().first()
+
+    if not item:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Inventory for product {reservation.product_id} not found",
+        )
+
+    if item.available_quantity < reservation.quantity:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Insufficient inventory. Requested: {reservation.quantity}, Available: {item.available_quantity}",
+        )
+
+    # Update inventory
+    new_available = item.available_quantity - reservation.quantity
+    new_reserved = item.reserved_quantity + reservation.quantity
+
+    query = (
+        update(InventoryItem)
+        .where(InventoryItem.product_id == reservation.product_id)
+        .values(
+            available_quantity=new_available,
+            reserved_quantity=new_reserved,
+            updated_at=func.now(),
+        )
+        .returning(InventoryItem)
+    )
+
+    result = await db.execute(query)
+    updated_item = result.scalars().first()
+
+    # Add history record
+    history_entry = InventoryHistory(
+        product_id=reservation.product_id,
+        quantity_change=-reservation.quantity,
+        previous_quantity=item.available_quantity,
+        new_quantity=new_available,
+        change_type="reserve",
+        reference_id=reservation.order_id,
+    )
+    db.add(history_entry)
+
+    await db.commit()
+
+    # Check for low stock
+    await check_and_notify_low_stock(updated_item)
+
+    logger.info(
+        f"Reserved {reservation.quantity} units of product {reservation.product_id}"
+    )
+
+    return {
+        "reserved": True,
+        "product_id": reservation.product_id,
+        "quantity": reservation.quantity,
+        "available_quantity": new_available,
+        "reserved_quantity": new_reserved,
+    }
