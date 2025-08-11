@@ -505,3 +505,53 @@ async def get_low_stock_items(
     items = result.scalars().all()
 
     return items
+
+
+@router.get("/history/{product_id}", response_model=List[Dict[str, Any]])
+async def get_inventory_history(
+    product_id: str,
+    limit: int = Query(20, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
+    """
+    Get inventory history for a product.
+    """
+    # First check if product exists in inventory
+    query = select(InventoryItem).where(InventoryItem.product_id == product_id)
+    result = await db.execute(query)
+    item = result.scalars().first()
+
+    if not item:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Inventory for product {product_id} not found",
+        )
+
+    # Get history
+    query = (
+        select(InventoryHistory)
+        .where(InventoryHistory.product_id == product_id)
+        .order_by(InventoryHistory.timestamp.desc())
+        .limit(limit)
+    )
+
+    result = await db.execute(query)
+    history = result.all()
+
+    # Convert to list of dicts
+    history_list = [
+        {
+            "id": h.id,
+            "product_id": h.product_id,
+            "quantity_change": h.quantity_change,
+            "previous_quantity": h.previous_quantity,
+            "new_quantity": h.new_quantity,
+            "change_type": h.change_type,
+            "reference_id": h.reference_id,
+            "timestamp": h.timestamp,
+        }
+        for h in history
+    ]
+
+    return history_list
