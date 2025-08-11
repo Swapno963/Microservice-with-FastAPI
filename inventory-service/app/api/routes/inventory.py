@@ -414,3 +414,76 @@ async def release_inventory(
         "available_quantity": new_available,
         "reserved_quantity": new_reserved,
     }
+
+
+@router.post("/adjust", response_model=InventoryItemResponse)
+async def adjust_inventory(
+    adjustment: InventoryAdjust,
+    db: AsyncSession = Depends(get_db),
+    current_user: Dict[str, Any] = Depends(
+        is_admin
+    ),  # Only admins can adjust inventory
+):
+    """
+    Adjust inventory levels (add or remove).
+
+    This will:
+    1. Check if inventory exists
+    2. Apply the adjustment (positive or negative)
+    3. Create a history entry
+    """
+    # Check if inventory exists
+    query = select(InventoryItem).where(
+        InventoryItem.product_id == adjustment.product_id
+    )
+    result = await db.execute(query)
+    item = result.scalars().first()
+
+    if not item:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Inventory for product {adjustment.product_id} not found",
+        )
+
+    # Calculate new quantity
+    new_quantity = item.available_quantity + adjustment.quantity_change
+
+    # Ensure we don't go negative
+    if new_quantity < 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot reduce inventory below zero. Current: {item.available_quantity}, Adjustment: {adjustment.quantity_change}",
+        )
+
+    # Update inventory
+    query = (
+        update(InventoryItem)
+        .where(InventoryItem.product_id == adjustment.product_id)
+        .values(available_quantity=new_quantity, updated_at=func.now())
+        .returning(InventoryItem)
+    )
+
+    result = await db.execute(query)
+    updated_item = result.scalars().first()
+
+    # Add history record
+    change_type = "add" if adjustment.quantity_change > 0 else "remove"
+    history_entry = InventoryHistory(
+        product_id=adjustment.product_id,
+        quantity_change=adjustment.quantity_change,
+        previous_quantity=item.available_quantity,
+        new_quantity=new_quantity,
+        change_type=change_type,
+        reference_id=adjustment.reference_id,
+    )
+    db.add(history_entry)
+
+    await db.commit()
+
+    # Check for low stock
+    await check_and_notify_low_stock(updated_item)
+
+    logger.info(
+        f"Adjusted inventory for product {adjustment.product_id} by {adjustment.quantity_change}"
+    )
+    return updated_item
