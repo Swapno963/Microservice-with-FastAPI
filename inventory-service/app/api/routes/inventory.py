@@ -555,3 +555,40 @@ async def get_inventory_history(
     ]
 
     return history_list
+
+
+async def check_and_notify_low_stock(inventory_item: InventoryItem):
+    """
+    Check if an item is below its reorder threshold and send notification if needed.
+    """
+    if not settings.ENABLE_NOTIFICATIONS or not settings.NOTIFICATION_URL:
+        return
+
+    if inventory_item.available_quantity <= inventory_item.reorder_threshold:
+        try:
+            product = await product_service.get_product(inventory_item.product_id)
+            product_name = (
+                product.get("name", inventory_item.product_id)
+                if product
+                else inventory_item.product_id
+            )
+
+            notification_data = {
+                "type": "low_stock",
+                "product_id": inventory_item.product_id,
+                "product_name": product_name,
+                "current_quantity": inventory_item.available_quantity,
+                "threshold": inventory_item.reorder_threshold,
+                "timestamp": datetime.utcnow().isoformat(),
+            }
+
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                await client.post(
+                    str(settings.NOTIFICATION_URL), json=notification_data
+                )
+
+            logger.info(
+                f"Sent low stock notification for product {inventory_item.product_id}"
+            )
+        except Exception as e:
+            logger.error(f"Failed to send low stock notification: {str(e)}")
