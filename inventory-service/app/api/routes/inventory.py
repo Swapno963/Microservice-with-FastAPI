@@ -487,3 +487,21 @@ async def adjust_inventory(
         f"Adjusted inventory for product {adjustment.product_id} by {adjustment.quantity_change}"
     )
     return updated_item
+
+
+@router.get("/low-stock", response_model=List[InventoryItemResponse])
+async def get_low_stock_items(
+    db: AsyncSession = Depends(get_db),
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
+    """
+    Get all items with inventory below their reorder threshold.
+    """
+    query = select(InventoryItem).where(
+        InventoryItem.available_quantity <= InventoryItem.reorder_threshold
+    )
+
+    result = await db.execute(query)
+    items = result.scalars().all()
+
+    return items
