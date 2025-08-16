@@ -2,6 +2,7 @@ from pydantic import BaseModel, Field, validator, condecimal
 from bson import ObjectId
 from typing import List, Optional, Dict, Any
 from app.core.config import settings
+from datetime import datetime
 
 
 class OrderItem(BaseModel):
@@ -61,6 +62,37 @@ class OrderUpdate(BaseModel):
     """Model for updating an order."""
 
     status: Optional[str] = None
+
+    @validator("status")
+    def validate_status(cls, v):
+        if v not in settings.ORDER_STATUS.values():
+            valid_statuses = ", ".join(settings.ORDER_STATUS.values())
+            raise ValueError(f"Invalid status. Must be one of: {valid_statuses}")
+        return v
+
+
+class OrderResponse(BaseModel):
+    """Model for order response including ID."""
+
+    id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
+    user_id: str
+    items: List[OrderItem]
+    total_price: condecimal(max_digits=10, decimal_places=2)
+    status: str
+    shipping_address: OrderAddress
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        allow_population_by_field_name = True
+        arbitrary_types_allowed = True
+        json_encoders = {ObjectId: str, Decimal: str}
+
+
+class OrderStatusUpdate(BaseModel):
+    """Model for updating an order's status."""
+
+    status: str
 
     @validator("status")
     def validate_status(cls, v):
