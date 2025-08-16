@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field, validator, condecimal
 from bson import ObjectId
 from typing import List, Optional, Dict, Any
+from app.core.config import settings
 
 
 class OrderItem(BaseModel):
@@ -53,4 +54,17 @@ class OrderCreate(BaseModel):
     def validate_items(cls, v):
         if not v:
             raise ValueError("Order must have at least one item")
+        return v
+
+
+class OrderUpdate(BaseModel):
+    """Model for updating an order."""
+
+    status: Optional[str] = None
+
+    @validator("status")
+    def validate_status(cls, v):
+        if v not in settings.ORDER_STATUS.values():
+            valid_statuses = ", ".join(settings.ORDER_STATUS.values())
+            raise ValueError(f"Invalid status. Must be one of: {valid_statuses}")
         return v
