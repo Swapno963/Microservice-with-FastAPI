@@ -25,8 +25,6 @@ services:
       retries: 3
       start_period: 40s
 
-
-
   mongodb-product:
     image: mongo:5.0
     volumes:
@@ -44,6 +42,46 @@ services:
       start_period: 30s
 
 
+  order-service:
+    build:
+      context: ./order-service
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8001"
+    environment:
+      - USER_SERVICE_URL=http://user-service:8003/api/v1
+      - PRODUCT_SERVICE_URL=http://product-service:8000/api/v1
+      - INVENTORY_SERVICE_URL=http://inventory-service:8002/api/v1
+    env_file:
+      - ./order-service/.env
+    depends_on:
+      mongodb-order:
+        condition: service_healthy
+    networks:
+      - microservice-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8001/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  mongodb-order:
+    image: mongo:5.0
+    volumes:
+      - mongodb_order_data:/data/db
+    networks:
+      - microservice-network
+    environment:
+      - MONGO_INITDB_DATABASE=order_db
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mongo", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
 
-      
+
