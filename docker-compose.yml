@@ -25,3 +25,25 @@ services:
       retries: 3
       start_period: 40s
 
+
+
+  mongodb-product:
+    image: mongo:5.0
+    volumes:
+      - mongodb_product_data:/data/db
+    networks:
+      - microservice-network
+    environment:
+      - MONGO_INITDB_DATABASE=product_db
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mongo", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+
+
+
+      
