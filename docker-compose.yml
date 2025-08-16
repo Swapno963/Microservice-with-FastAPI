@@ -2,6 +2,7 @@ version: '3.8'
 
 
 services:
+  # Product Service and its database
   product-service:
     build:
       context: ./product-service
@@ -42,6 +43,8 @@ services:
       start_period: 30s
 
 
+
+  # Order Service and its database
   order-service:
     build:
       context: ./order-service
@@ -83,5 +86,49 @@ services:
       retries: 5
       start_period: 30s
 
+
+
+  # Inventory Service and its database
+  inventory-service:
+    build:
+      context: ./inventory-service
+      dockerfile: Dockerfile
+    ports:
+      - "8002:8002"
+    environment:
+      - PRODUCT_SERVICE_URL=http://product-service:8000/api/v1
+      - DATABASE_URL=postgresql://postgres:postgres@postgres-inventory:5432/inventory_db
+    env_file:
+      - ./inventory-service/.env
+    depends_on:
+      postgres-inventory:
+        condition: service_healthy
+    networks:
+      - microservice-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8002/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  postgres-inventory:
+    image: postgres:13
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=inventory_db
+    volumes:
+      - postgres_inventory_data:/var/lib/postgresql/data
+    networks:
+      - microservice-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d inventory_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
 
