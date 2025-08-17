@@ -4,6 +4,7 @@ from app.models.order import Order, OrderCreate, OrderUpdate, OrderResponse
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from app.api.dependencies import get_db, get_current_user
 from typing import List, Optional, Dict, Any
+from app.services.user import user_service
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -29,3 +30,9 @@ async def create_order(
     5. Create the order in the pending status
 
     """
+    # Verify user exists
+    user_valid = await user_service.verify_user(order.user_id)
+    if not user_valid:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid user ID"
+        )
