@@ -46,3 +46,6 @@ class InventoryServiceClient:
         except httpx.RequestError as e:
             logger.error(f"Error checking inventory: {str(e)}")
             return False
+
+
+inventory_service = InventoryServiceClient()

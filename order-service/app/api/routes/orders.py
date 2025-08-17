@@ -6,6 +6,9 @@ from app.api.dependencies import get_db, get_current_user
 from typing import List, Optional, Dict, Any
 from app.services.user import user_service
 from app.services.product import product_service
+from app.services.inventory import inventory_service
+from app.core.config import settings
+
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -44,4 +47,23 @@ async def create_order(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="One or more products are invalid or have incorrect prices",
+        )
+
+    # Check inventory availability for all items
+    inventory_checks = []
+    for item in order.items:
+        inventory_available = await inventory_service.check_inventory(
+            item.product_id, item.quantity
+        )
+        inventory_checks.append((item, inventory_available))
+
+    if not all(available for _, available in inventory_checks):
+        unavailable_items = [
+            f"Product {item.product_id} (quantity: {item.quantity})"
+            for item, available in inventory_checks
+            if not available
+        ]
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Insufficient inventory for: {', '.join(unavailable_items)}",
         )
