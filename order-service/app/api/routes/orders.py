@@ -5,6 +5,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from app.api.dependencies import get_db, get_current_user
 from typing import List, Optional, Dict, Any
 from app.services.user import user_service
+from app.services.product import product_service
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -35,4 +36,12 @@ async def create_order(
     if not user_valid:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid user ID"
+        )
+
+    # Verify all products exist and prices are correct
+    products_valid = await product_service.verify_products(order.items)
+    if not products_valid:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="One or more products are invalid or have incorrect prices",
         )
