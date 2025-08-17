@@ -67,3 +67,42 @@ async def create_order(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Insufficient inventory for: {', '.join(unavailable_items)}",
         )
+
+    # Reserve inventory for all items
+    for item, _ in inventory_checks:
+        await inventory_service.reserve_inventory(item.product_id, item.quantity)
+
+    # Calculate total price
+    total_price = sum(Decimal(str(item.price)) * item.quantity for item in order.items)
+
+    # Create the order
+    now = datetime.utcnow()
+
+    # Convert order items to dictionary format, explicitly converting Decimal to float
+    items_dict = []
+    for item in order.items:
+        items_dict.append(
+            {
+                "product_id": item.product_id,
+                "quantity": item.quantity,
+                "price": float(item.price),  # Convert Decimal to float for MongoDB
+            }
+        )
+
+    order_dict = {
+        "user_id": order.user_id,
+        "items": items_dict,
+        "total_price": float(total_price),  # Convert Decimal to float for MongoDB
+        "status": settings.ORDER_STATUS["PENDING"],
+        "shipping_address": order.shipping_address.dict(),
+        "created_at": now,
+        "updated_at": now,
+    }
+
+    result = await db["orders"].insert_one(order_dict)
+
+    # Retrieve the created order
+    created_order = await db["orders"].find_one({"_id": result.inserted_id})
+
+    logger.info(f"Created order: {result.inserted_id}")
+    return created_order
