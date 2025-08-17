@@ -8,7 +8,9 @@ from app.services.user import user_service
 from app.services.product import product_service
 from app.services.inventory import inventory_service
 from app.core.config import settings
-
+from bson import ObjectId
+from decimal import Decimal
+from datetime import datetime
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -106,3 +108,75 @@ async def create_order(
 
     logger.info(f"Created order: {result.inserted_id}")
     return created_order
+
+
+@router.get("/", response_model=List[OrderResponse])
+async def get_orders(
+    skip: int = Query(0, ge=0, description="Number of orders to skip"),
+    limit: int = Query(10, ge=1, le=100, description="Max number of orders to return"),
+    status: Optional[str] = Query(None, description="Filter by order status"),
+    user_id: Optional[str] = Query(None, description="Filter by user ID"),
+    start_date: Optional[str] = Query(None, description="Start date (YYYY-MM-DD)"),
+    end_date: Optional[str] = Query(None, description="End date (YYYY-MM-DD)"),
+    db: AsyncIOMotorDatabase = Depends(get_db),
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
+    """
+    Get all orders with optional filtering.
+
+    This endpoint allows filtering by:
+    - Order status
+    - User ID
+    - Date range
+    """
+    query = {}
+
+    # Apply filters if provided
+    if status:
+        if status not in settings.ORDER_STATUS.values():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid status. Must be one of: {', '.join(settings.ORDER_STATUS.values())}",
+            )
+        query["status"] = status
+
+    if user_id:
+        try:
+            query["user_id"] = str(ObjectId(user_id))
+        except:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid user ID format"
+            )
+
+    # Date filtering
+    date_filter = {}
+    if start_date:
+        try:
+            start_datetime = datetime.strptime(start_date, "%Y-%m-%d")
+            date_filter["$gte"] = start_datetime
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid start_date format. Use YYYY-MM-DD",
+            )
+
+    if end_date:
+        try:
+            # Add a day to include the entire end date
+            end_datetime = datetime.strptime(end_date, "%Y-%m-%d")
+            end_datetime = end_datetime.replace(hour=23, minute=59, second=59)
+            date_filter["$lte"] = end_datetime
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid end_date format. Use YYYY-MM-DD",
+            )
+
+    if date_filter:
+        query["created_at"] = date_filter
+
+    # Run the query
+    cursor = db["orders"].find(query).sort("created_at", -1).skip(skip).limit(limit)
+    orders = await cursor.to_list(length=limit)
+
+    return orders
