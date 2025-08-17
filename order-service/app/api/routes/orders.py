@@ -11,6 +11,7 @@ from app.core.config import settings
 from bson import ObjectId
 from decimal import Decimal
 from datetime import datetime
+from pymongo import ReturnDocument
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -241,3 +242,64 @@ async def get_user_orders(
     orders = await cursor.to_list(length=limit)
 
     return orders
+
+
+@router.put("/{order_id}/status", response_model=OrderResponse)
+async def update_order_status(
+    order_id: str,
+    status_update: OrderStatusUpdate,
+    db: AsyncIOMotorDatabase = Depends(get_db),
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
+    """
+    Update the status of an order.
+
+    This will validate the status transition and update inventory as needed.
+    """
+    # Validate the order ID
+    if not ObjectId.is_valid(order_id):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid order ID format"
+        )
+
+    # Get the current order
+    order = await db["orders"].find_one({"_id": ObjectId(order_id)})
+    if not order:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Order with ID {order_id} not found",
+        )
+
+    current_status = order["status"]
+    new_status = status_update.status
+
+    # Check if the status transition is allowed
+    if new_status not in settings.ALLOWED_STATUS_TRANSITIONS.get(current_status, []):
+        allowed = settings.ALLOWED_STATUS_TRANSITIONS.get(current_status, [])
+        allowed_str = ", ".join(allowed) if allowed else "none"
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid status transition from '{current_status}' to '{new_status}'. Allowed transitions: {allowed_str}",
+        )
+
+    # Handle inventory updates for specific transitions
+    if current_status == settings.ORDER_STATUS["PENDING"] and new_status in [
+        settings.ORDER_STATUS["CANCELLED"]
+    ]:
+        # Release inventory if order is cancelled from pending state
+        for item in order["items"]:
+            await inventory_service.release_inventory(
+                item["product_id"], item["quantity"]
+            )
+
+    # Update the order status
+    updated_order = await db["orders"].find_one_and_update(
+        {"_id": ObjectId(order_id)},
+        {"$set": {"status": new_status, "updated_at": datetime.utcnow()}},
+        return_document=ReturnDocument.AFTER,
+    )
+
+    logger.info(
+        f"Updated order {order_id} status from {current_status} to {new_status}"
+    )
+    return updated_order
