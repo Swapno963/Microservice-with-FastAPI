@@ -180,3 +180,28 @@ async def get_orders(
     orders = await cursor.to_list(length=limit)
 
     return orders
+
+
+@router.get("/{order_id}", response_model=OrderResponse)
+async def get_order(
+    order_id: str = Path(..., description="The ID of the order to retrieve"),
+    db: AsyncIOMotorDatabase = Depends(get_db),
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
+    """
+    Get a single order by ID.
+    """
+    # Validate the order ID
+    if not ObjectId.is_valid(order_id):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid order ID format"
+        )
+
+    order = await db["orders"].find_one({"_id": ObjectId(order_id)})
+    if not order:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Order with ID {order_id} not found",
+        )
+
+    return order
