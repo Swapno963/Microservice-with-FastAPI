@@ -205,3 +205,39 @@ async def get_order(
         )
 
     return order
+
+
+@router.get("/user/{user_id}", response_model=List[OrderResponse])
+async def get_user_orders(
+    user_id: str = Path(..., description="User ID to get orders for"),
+    skip: int = Query(0, ge=0, description="Number of orders to skip"),
+    limit: int = Query(10, ge=1, le=100, description="Max number of orders to return"),
+    status: Optional[str] = Query(None, description="Filter by order status"),
+    db: AsyncIOMotorDatabase = Depends(get_db),
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
+    """
+    Get all orders for a specific user.
+    """
+    # Validate the user ID
+    if not ObjectId.is_valid(user_id):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid user ID format"
+        )
+
+    # Build the query
+    query = {"user_id": user_id}
+
+    if status:
+        if status not in settings.ORDER_STATUS.values():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid status. Must be one of: {', '.join(settings.ORDER_STATUS.values())}",
+            )
+        query["status"] = status
+
+    # Run the query
+    cursor = db["orders"].find(query).sort("created_at", -1).skip(skip).limit(limit)
+    orders = await cursor.to_list(length=limit)
+
+    return orders
