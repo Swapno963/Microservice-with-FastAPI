@@ -303,3 +303,72 @@ async def update_order_status(
         f"Updated order {order_id} status from {current_status} to {new_status}"
     )
     return updated_order
+
+
+@router.delete("/{order_id}", status_code=204)
+async def cancel_order(
+    order_id: str,
+    db: AsyncIOMotorDatabase = Depends(get_db),
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
+    """
+    Cancel an order (if not shipped).
+
+    This will set the order status to cancelled and release inventory.
+    """
+    # Validate the order ID
+    if not ObjectId.is_valid(order_id):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid order ID format"
+        )
+
+    # Get the current order
+    order = await db["orders"].find_one({"_id": ObjectId(order_id)})
+    if not order:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Order with ID {order_id} not found",
+        )
+
+    current_status = order["status"]
+
+    # Check if the order can be cancelled
+    non_cancellable = [
+        settings.ORDER_STATUS["SHIPPED"],
+        settings.ORDER_STATUS["DELIVERED"],
+        settings.ORDER_STATUS["CANCELLED"],
+        settings.ORDER_STATUS["REFUNDED"],
+    ]
+
+    if current_status in non_cancellable:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot cancel order in '{current_status}' status",
+        )
+
+    # Release inventory if the order was in a state that had reserved inventory
+    inventory_states = [
+        settings.ORDER_STATUS["PENDING"],
+        settings.ORDER_STATUS["PAID"],
+        settings.ORDER_STATUS["PROCESSING"],
+    ]
+
+    if current_status in inventory_states:
+        for item in order["items"]:
+            await inventory_service.release_inventory(
+                item["product_id"], item["quantity"]
+            )
+
+    # Update the order status to cancelled
+    await db["orders"].update_one(
+        {"_id": ObjectId(order_id)},
+        {
+            "$set": {
+                "status": settings.ORDER_STATUS["CANCELLED"],
+                "updated_at": datetime.utcnow(),
+            }
+        },
+    )
+
+    logger.info(f"Cancelled order {order_id}")
+    return None
