@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, Body, status
 import logging
-from app.models.order import Order, OrderCreate, OrderUpdate, OrderResponse
+from app.models.order import OrderCreate, OrderUpdate, OrderResponse, OrderStatusUpdate
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from app.api.dependencies import get_db, get_current_user
 from typing import List, Optional, Dict, Any
