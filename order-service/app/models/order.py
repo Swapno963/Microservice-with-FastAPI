@@ -3,6 +3,7 @@ from bson import ObjectId
 from typing import List, Optional, Dict, Any
 from app.core.config import settings
 from datetime import datetime
+from decimal import Decimal
 
 
 class PyObjectId(ObjectId):
