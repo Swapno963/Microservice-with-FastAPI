@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     API_PREFIX: str = "/api/v1"
     DEBUG: bool = False
     PROJECT_NAME: str = "Order Service"
-    PORT: int = 8001
+    PORT: int = 8004
     
     # MongoDB settings
     MONGODB_URI: str = "mongodb://localhost:27017"
