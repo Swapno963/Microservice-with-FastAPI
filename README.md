@@ -7,6 +7,11 @@ This is a full-stack microservice-based application built using:
 - **Databases**: PostgreSQL and MongoDB
 - **Containerization**: Docker (multi-stage Dockerfiles)
 
+## System Architecture
+
+![alt text](./project-screenshot/E-commerce%20Arch.svg)
+
+
 ## Project Structure
 - **User Service**: Handles authentication, registration, and user management.
 - **Inventory Service**: Manages stock levels, warehouses, and inventory operations.
