@@ -26,8 +26,8 @@ app.add_middleware(
 app.include_router(orders.router, prefix=settings.API_PREFIX)
 
 # Register startup and shutdown events
-# app.add_event_handler("startup", connect_to_mongo)
-# app.add_event_handler("shutdown", close_mongo_connection)
+app.add_event_handler("startup", connect_to_mongo)
+app.add_event_handler("shutdown", close_mongo_connection)
 
 # Health check endpoint
 @app.get("/health")
@@ -38,4 +38,4 @@ async def health_check():
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run("app.main:app", host="0.0.0.0", port=settings.PORT, reload=True)
+    uvicorn.run("app.main:app", host="0.0.0.0", port=settings.PORT, reload=False)
