@@ -55,6 +55,7 @@ docker-compose up --build
 A dedicated microservice for managing all user-related functionality. This service handles user authentication, profile management, and account security.
 postgres is used as database.
 
+
 ### Features
 
 This microservice includes the following key functionalities:
@@ -110,19 +111,27 @@ Postgres is used as database.
 
 # Order Microservice
 
-A microservice for managing all product-related functionality. This service handles product creation, update.
+A microservice for managing all Order-related functionality. This service handles product order,get all oraders, update order, cancle order.
 Mongodb is used as database.
+
+
+
 ### Features
 
 This microservice includes the following key functionalities:
 
-* **Products:** Get all the products
-* **product:** Create Product
-* **Product<id>:** See Detail/Update/Delete product
-* **Category:** Get category list.
+* **orders:** Check inventory availability for all the products. Reserve inventory for all the products. Create the order in the pending status
+* **orders:**     Get all orders with optional filtering. This endpoint allows filtering by:
+    - Order status
+    - User ID
+    - Date range
+* **orders<order_id>:** Get a single order by ID.
+* **/user/{user_id}:** Get all orders for a specific user.
+* **/{order_id}/status:**     Update the status of an order. This will validate the status transition and update inventory as needed.
+* **/{order_id}:**  Cancel an order (if not shipped). This will set the order status to cancelled and release inventory.
 
 
-![A screenshot of the User Microservice](project-screenshot/Product%20Servicce.png)
+![A screenshot of the Order Microservice](project-screenshot/Product%20Servicce.png)
 
 
 
