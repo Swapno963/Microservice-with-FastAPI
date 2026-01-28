@@ -105,4 +105,40 @@ Postgres is used as database.
 
 
 
+
+
+
+# Order Microservice
+
+A microservice for managing all product-related functionality. This service handles product creation, update.
+Mongodb is used as database.
+### Features
+
+This microservice includes the following key functionalities:
+
+* **Products:** Get all the products
+* **product:** Create Product
+* **Product<id>:** See Detail/Update/Delete product
+* **Category:** Get category list.
+
+
+![A screenshot of the User Microservice](project-screenshot/Product%20Servicce.png)
+
+
+
+
+# Inventory Microservice
+
+This handel inventory-related functionality. This service handles Create Inventory, Check Inventory, Update inventory and keeping inventory history, Reserve inventory quantiry and keeping history of it,Relese inventory quantiry and keeping history of it,Check low stock and send mail.
+Postgres is used as database.
+
+
+* **Create inventory:** Create, update inventory for a product, get inventory items
+* **reserve:** Reserve inventory of a specific product
+* **release:** release inventory of a specific product
+* **adjust:** Add/Remove inventory of a specific product
+* **low-stockst:** Returns all the products whose available_quantity is low compare to reorderd_threshold
+* **history:** Get history of a specific product
+
+
 ![A screenshot of the User Microservice](project-screenshot/Inventory%20Service.png)
