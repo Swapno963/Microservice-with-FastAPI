@@ -10,7 +10,7 @@ app = FastAPI(
     description="Product Service API",
     version="1.0.0",
     openapi_url=f"{settings.API_PREFIX}/openapi.json",
-    docs_url=f"{settings.API_PREFIX}/docs/products",
+    docs_url=f"{settings.API_PREFIX}/docs",
     redoc_url=f"{settings.API_PREFIX}/redoc",
 )
 
