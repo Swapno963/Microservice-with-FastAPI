@@ -10,9 +10,10 @@ app = FastAPI(
     description="Product Service API",
     version="1.0.0",
     openapi_url=f"{settings.API_PREFIX}/openapi.json",
-    docs_url=f"{settings.API_PREFIX}/docs",
+    docs_url=f"{settings.API_PREFIX}/docs/products",
     redoc_url=f"{settings.API_PREFIX}/redoc",
 )
+
 
 # Set up CORS middleware
 app.add_middleware(
