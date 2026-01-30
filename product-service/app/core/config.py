@@ -5,7 +5,7 @@ from pydantic import BaseSettings, validator, AnyHttpUrl
 
 class Settings(BaseSettings):
     # API settings
-    API_PREFIX: str = "/api/v1"
+    API_PREFIX: str = "/api/v1/products"
     DEBUG: bool = False
     PROJECT_NAME: str = "Product Service"
 
