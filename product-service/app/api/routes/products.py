@@ -11,7 +11,7 @@ from pymongo import ReturnDocument
 logger = logging.getLogger(__name__)
 
 # Create router
-router = APIRouter(prefix="/products", tags=["Products"])
+router = APIRouter(prefix="", tags=["Products"])
 
 
 @router.post("/", response_model=ProductResponse, status_code=201)
