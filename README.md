@@ -132,7 +132,8 @@ This microservice includes the following key functionalities:
 * **/{order_id}:**  Cancel an order (if not shipped). This will set the order status to cancelled and release inventory.
 
 
-![A screenshot of the Order Microservice](project-screenshot/Product%20Servicce.png)
+
+![A screenshot of the Order Microservice](project-screenshot/orders_service.png)
 
 
 
