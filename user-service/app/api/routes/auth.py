@@ -14,7 +14,7 @@ from datetime import datetime, timedelta
 from app.core.config import settings
 from app.core.security import create_access_token, create_refresh_token
 
-router = APIRouter(prefix="/auth", tags=["authentication"])
+router = APIRouter(prefix="", tags=["authentication"])
 logger = logging.getLogger(__name__)
 
 
