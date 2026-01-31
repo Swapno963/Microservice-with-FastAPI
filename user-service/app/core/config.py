@@ -3,7 +3,7 @@ from pydantic import PostgresDsn, BaseSettings
 
 class Settings(BaseSettings):
     # Api settings
-    API_PREFIX: str = "/api/v1"  # Route prefix for all API routes
+    API_PREFIX: str = "/api/v1/auth"  # Route prefix for all API routes
     DEBUG: bool = False
     PROJECT_NAME: str = "User Service"
     PORT: int = 8003
