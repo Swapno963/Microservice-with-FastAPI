@@ -6,7 +6,7 @@ from pydantic import BaseSettings, AnyHttpUrl, validator, PostgresDsn
 
 class Settings(BaseSettings):
     # API settings
-    API_PREFIX: str = "/api/v1"
+    API_PREFIX: str = "/api/v1/inventory"
     DEBUG: bool = False
     PROJECT_NAME: str = "Inventory Service"
     PORT: int = 8002

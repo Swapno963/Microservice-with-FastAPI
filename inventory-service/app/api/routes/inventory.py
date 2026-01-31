@@ -27,7 +27,7 @@ from app.core.config import settings
 logger = logging.getLogger(__name__)
 
 # Create router
-router = APIRouter(prefix="/inventory", tags=["inventory"])
+router = APIRouter(prefix="", tags=["inventory"])
 
 
 @router.post("/", response_model=InventoryItemResponse, status_code=201)
