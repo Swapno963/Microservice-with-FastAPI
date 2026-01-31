@@ -1,8 +1,9 @@
 # notification-service/app/models/notification.py
 from sqlalchemy import Column, Integer, String, DateTime, JSON, Text
 from sqlalchemy.sql import func
-
-
+from datetime import datetime
+from pydantic import BaseModel, Field
+from typing import Optional, Dict, Any
 from app.db.postgresql import Base
 
 
@@ -33,3 +34,35 @@ class Notification(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     sent_at = Column(DateTime(timezone=True), nullable=True)
+
+
+
+
+
+# Pydantic Models for API
+class NotificationBase(BaseModel):
+    """Base model for notifications."""
+    type: str
+    channel: str = "email"  # Add this field
+    recipient_id: Optional[str] = None  # Add this field
+    subject: Optional[str] = None
+    content: str
+    data: Optional[Dict[str, Any]] = None
+
+
+class NotificationCreate(NotificationBase):
+    """Model for creating a notification."""
+    pass
+
+
+class NotificationResponse(NotificationBase):
+    """Model for notification response."""
+    id: int
+    status: str
+    error_message: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+    sent_at: Optional[datetime] = None
+    
+    class Config:
+        orm_mode = True
