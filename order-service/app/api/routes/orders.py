@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 # Create router
-router = APIRouter(prefix="/orders", tags=["orders"])
+router = APIRouter(prefix="", tags=["orders"])
 
 
 @router.post("/", response_model=OrderResponse, status_code=status.HTTP_201_CREATED)

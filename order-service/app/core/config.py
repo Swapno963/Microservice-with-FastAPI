@@ -6,10 +6,10 @@ from pydantic import BaseSettings, AnyHttpUrl, validator
 
 class Settings(BaseSettings):
     # API settings
-    API_PREFIX: str = "/api/v1"
+    API_PREFIX: str = "/api/v1/orders"
     DEBUG: bool = False
     PROJECT_NAME: str = "Order Service"
-    PORT: int = 8004
+    PORT: int = 8001
     
     # MongoDB settings
     MONGODB_URI: str = "mongodb://localhost:27017"
