@@ -215,8 +215,7 @@ services:
     depends_on:
       postgres-notification:
         condition: service_healthy
-      redis:
-        condition: service_healthy
+
     networks:
       - microservice-network
     restart: unless-stopped
@@ -256,3 +255,4 @@ volumes:
   mongodb_order_data:
   postgres_inventory_data:
   postgres_user_data:
+  postgres_notification_data:
