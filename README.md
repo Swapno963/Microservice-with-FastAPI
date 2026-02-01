@@ -46,6 +46,7 @@ cd Microservice-with-FastAPI
 # Build and start all services
 docker-compose up --build
 ```
+![A screenshot of the Running services](project-screenshot/docker_ps.png)
 
 
 
