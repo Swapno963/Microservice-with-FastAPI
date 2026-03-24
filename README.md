@@ -139,3 +139,5 @@ This microservice includes the following key functionalities:
 
 
 
+### Upcomeing
+Make it as a sass application, where a small business woner come to delegate website management work load to us by a tk/per user request
