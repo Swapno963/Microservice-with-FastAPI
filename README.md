@@ -140,4 +140,9 @@ This microservice includes the following key functionalities:
 
 
 ### Upcomeing
-Make it as a sass application, where a small business woner come to delegate website management work load to us by a tk/per user request
+This platform evolves from a single-vendor e-commerce system into a multi-vendor SaaS solution, where:
+
+Small business owners (vendors) can register and manage their own stores
+Customers can browse and purchase from multiple vendors
+The platform earns revenue via subscription or per-user/per-request pricing
+
