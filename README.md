@@ -19,7 +19,8 @@ This is a full-stack microservice-based application built using:
 - *(Upcoming)* **Payment Service**: Will manage transactions, payment gateways, and order settlements.
 
 Each microservice is containerized using a **multi-stage Dockerfile** for optimized production builds.
-Each service have it's own docker-compose.yml to run servicess independently for testing/development.
+Each service have it's own docker-compose.yml to run services independently for testing/development.appropriate indexes implemented to avoid slow queries.
+
 ## Features
 
 - Authentication and Authorization
