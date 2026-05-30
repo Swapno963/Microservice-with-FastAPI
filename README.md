@@ -92,8 +92,8 @@ Postgres is used as database.
 
 * **Create inventory(Transaction):** Create, update inventory for a product, get inventory items
 * **reserve(Transaction):** Reserve inventory of a specific product
-* **release(Transaction):** release inventory of a specific product
-* **adjust(Transaction):** Add/Remove inventory of a specific product
+* **release(****Transaction****):** release inventory of a specific product
+* **adjust(****Transaction****):** Add/Remove inventory of a specific product
 * **low-stockst(No Transaction):** Returns all the products whose available_quantity is low compare to reorderd_threshold
 * **history(No Transaction):** Get history of a specific product
 
