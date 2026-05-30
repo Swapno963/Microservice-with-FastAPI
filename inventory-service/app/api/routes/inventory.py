@@ -195,70 +195,105 @@ async def update_inventory_item(
     product_id: str,
     item_update: InventoryItemUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: Dict[str, Any] = Depends(
-        is_admin
-    ),  # Only admins can update inventory
+    current_user: Dict[str, Any] = Depends(is_admin),
 ):
     """
-    Update inventory item for a product.
+    Update inventory item for a product using a row-level lock.
     """
-    # Check if item exists
-    query = select(InventoryItem).where(InventoryItem.product_id == product_id)
-    result = await db.execute(query)
-    existing_item = result.scalars().first()
 
-    if not existing_item:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Inventory for product {product_id} not found",
+    async with db.begin():
+
+        # Lock inventory row
+        result = await db.execute(
+            select(InventoryItem)
+            .where(InventoryItem.product_id == product_id)
+            .with_for_update()
         )
 
-    # Build update dictionary with only provided fields
-    update_data = {}
-    previous_quantity = existing_item.available_quantity
+        existing_item = result.scalars().first()
 
-    if item_update.available_quantity is not None:
-        update_data["available_quantity"] = item_update.available_quantity
+        if not existing_item:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Inventory for product {product_id} not found",
+            )
 
-    if item_update.reserved_quantity is not None:
-        update_data["reserved_quantity"] = item_update.reserved_quantity
+        previous_quantity = existing_item.available_quantity
 
-    if item_update.reorder_threshold is not None:
-        update_data["reorder_threshold"] = item_update.reorder_threshold
-
-    update_data["updated_at"] = func.now()
-
-    # Update the item
-    query = (
-        update(InventoryItem)
-        .where(InventoryItem.product_id == product_id)
-        .values(**update_data)
-        .returning(InventoryItem)
-    )
-
-    result = await db.execute(query)
-    updated_item = result.scalars().first()
-
-    # Add history record if quantity changed
-    if "available_quantity" in update_data:
-        quantity_change = update_data["available_quantity"] - previous_quantity
-        history_entry = InventoryHistory(
-            product_id=product_id,
-            quantity_change=quantity_change,
-            previous_quantity=previous_quantity,
-            new_quantity=update_data["available_quantity"],
-            change_type="update",
-            reference_id=None,
+        # Calculate new values
+        new_available_quantity = (
+            item_update.available_quantity
+            if item_update.available_quantity is not None
+            else existing_item.available_quantity
         )
-        db.add(history_entry)
 
-    await db.commit()
+        new_reserved_quantity = (
+            item_update.reserved_quantity
+            if item_update.reserved_quantity is not None
+            else existing_item.reserved_quantity
+        )
 
-    # Check for low stock and send notification if needed
-    await check_and_notify_low_stock(updated_item)
+        new_reorder_threshold = (
+            item_update.reorder_threshold
+            if item_update.reorder_threshold is not None
+            else existing_item.reorder_threshold
+        )
+
+        # Business validations
+
+        if new_available_quantity < 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Available quantity cannot be negative",
+            )
+
+        if new_reserved_quantity < 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Reserved quantity cannot be negative",
+            )
+
+        if new_reserved_quantity > new_available_quantity:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Reserved quantity cannot exceed available quantity",
+            )
+
+        if new_reorder_threshold < 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Reorder threshold cannot be negative",
+            )
+
+        # Update ORM object directly
+        existing_item.available_quantity = new_available_quantity
+        existing_item.reserved_quantity = new_reserved_quantity
+        existing_item.reorder_threshold = new_reorder_threshold
+        existing_item.updated_at = func.now()
+
+        # Create history record if quantity changed
+        if previous_quantity != new_available_quantity:
+            history_entry = InventoryHistory(
+                product_id=product_id,
+                quantity_change=new_available_quantity - previous_quantity,
+                previous_quantity=previous_quantity,
+                new_quantity=new_available_quantity,
+                change_type="update",
+                reference_id=None,
+            )
+
+            db.add(history_entry)
+
+    # Transaction committed here
+
+    await db.refresh(existing_item)
+
+    # Outside transaction
+    await check_and_notify_low_stock(existing_item)
 
     logger.info(f"Updated inventory for product {product_id}")
-    return updated_item
+
+    return existing_item
 
 
 @router.post("/reserve", response_model=Dict[str, Any])
