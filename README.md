@@ -36,26 +36,21 @@ MongoDB provides:
 - Faster iteration
 - Natural document modeling
 
-
-
-
-
 ### Consistency Strategy
 
 This project intentionally uses different consistency models.
 
-| Service | Database | Consistency Model |
-|----------|----------|----------|
-| Inventory | PostgreSQL | Strong Consistency |
-| Product | MongoDB | Eventual Consistency |
-| User | MongoDB | Eventual Consistency |
-| Order | MongoDB | Eventual Consistency |
+| Service   | Database   | Consistency Model    |
+| --------- | ---------- | -------------------- |
+| Inventory | PostgreSQL | Strong Consistency   |
+| Product   | MongoDB    | Eventual Consistency |
+| User      | MongoDB    | Eventual Consistency |
+| Order     | MongoDB    | Eventual Consistency |
 
 Inventory operations are protected by database transactions.
 
 Order creation and inventory reservation are treated as separate
 service boundaries.
-
 
 ## Failure Scenarios
 
@@ -93,6 +88,26 @@ Future optimizations:
 - CQRS read models
 - Event-driven inventory projections
 - Kafka/RabbitMQ integration
+
+
+## Service Communication Strategy
+
+Current State
+
+- Synchronous communication via HTTP APIs
+- Simpler architecture for development and debugging
+- Explicit service boundaries
+
+Future Evolution
+
+As the system grows, event-driven communication will be introduced for:
+
+- Email notifications
+- Audit logging
+- Analytics
+- Low-stock alerts
+
+Critical business operations such as inventory reservation will remain synchronous to provide immediate consistency guarantees.
 
 ## System Architecture
 
@@ -167,7 +182,7 @@ This microservice includes the following key functionalities:
 
 * **Products:** Get all the products
 * **product:** Create Product
-* **Product`<id>`:** See Detail/Update/Delete product
+* **Product `<id>`:** See Detail/Update/Delete product
 * **Category:** Get category list.
 
 ![A screenshot of the User Microservice](project-screenshot/Product%20Servicce.png)
@@ -183,8 +198,6 @@ Postgres is used as database.
 * **adjust(****Transaction****):** Add/Remove inventory of a specific product
 * **low-stockst(No Transaction):** Returns all the products whose available_quantity is low compare to reorderd_threshold
 * **history(No Transaction):** Get history of a specific product
-
-
 
 ![A screenshot of the Inventory Microservice](project-screenshot/inventory.png)
 
@@ -216,8 +229,6 @@ This platform evolves from a single-vendor e-commerce system into a multi-vendor
 Small business owners (vendors) can register and manage their own stores
 Customers can browse and purchase from multiple vendors
 The platform earns revenue via subscription or per-user/per-request pricing
-
-
 
 ## Key Engineering Goal
 
