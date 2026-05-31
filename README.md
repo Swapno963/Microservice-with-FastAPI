@@ -4,8 +4,95 @@ This is a full-stack microservice-based application built using:
 
 - **Frontend**: React.js / Next.js(Pending)
 - **Backend**: FastAPI (Ongoing)
-- **Databases**: PostgreSQL and MongoDB
-- **Containerization**: Docker (multi-stage Dockerfiles)
+- **Databases**: PostgreSQL for inventory service and MongoDB for user,product and order service
+- **Containerization**: Docker (multi-stage Dockerfile)
+
+## Architectural Decisions
+
+#### Why PostgreSQL for Inventory?
+
+Inventory is the only service that directly manages a scarce resource.
+
+Incorrect inventory updates can result in:
+
+- Overselling
+- Negative stock
+- Inconsistent reservations
+
+To prevent these issues, PostgreSQL is used with:
+
+- ACID transactions
+- Row-level locking (SELECT ... FOR UPDATE)
+- Transactional inventory history
+
+### Why MongoDB for Product, User and Order?
+
+These services primarily store business documents and do not require
+cross-document ACID guarantees for their core operations.
+
+MongoDB provides:
+
+- Flexible schema evolution
+- Faster iteration
+- Natural document modeling
+
+
+
+
+
+### Consistency Strategy
+
+This project intentionally uses different consistency models.
+
+| Service | Database | Consistency Model |
+|----------|----------|----------|
+| Inventory | PostgreSQL | Strong Consistency |
+| Product | MongoDB | Eventual Consistency |
+| User | MongoDB | Eventual Consistency |
+| Order | MongoDB | Eventual Consistency |
+
+Inventory operations are protected by database transactions.
+
+Order creation and inventory reservation are treated as separate
+service boundaries.
+
+
+## Failure Scenarios
+
+### Order Created but Inventory Reservation Failed
+
+Possible causes:
+
+- Insufficient stock
+- Database failure
+- Network failure
+
+Current strategy:
+
+- Order remains in pending state
+- Inventory reservation failure is returned
+- Client may retry
+
+Future improvement:
+
+- Saga Pattern
+- Outbox Pattern
+- Event-driven compensation
+
+## Scalability Considerations
+
+Current implementation:
+
+- PostgreSQL row-level locking
+- Transactional history tracking
+
+Future optimizations:
+
+- Atomic UPDATE statements
+- Read replicas
+- CQRS read models
+- Event-driven inventory projections
+- Kafka/RabbitMQ integration
 
 ## System Architecture
 
@@ -32,7 +119,7 @@ Each service have it's own docker-compose.yml to run services independently for 
 
 ## Docker Setup
 
-### Prerequisites
+#### Prerequisites
 
 - Docker
 - Docker Compose
@@ -97,6 +184,8 @@ Postgres is used as database.
 * **low-stockst(No Transaction):** Returns all the products whose available_quantity is low compare to reorderd_threshold
 * **history(No Transaction):** Get history of a specific product
 
+
+
 ![A screenshot of the Inventory Microservice](project-screenshot/inventory.png)
 
 # Order Microservice
@@ -127,3 +216,20 @@ This platform evolves from a single-vendor e-commerce system into a multi-vendor
 Small business owners (vendors) can register and manage their own stores
 Customers can browse and purchase from multiple vendors
 The platform earns revenue via subscription or per-user/per-request pricing
+
+
+
+## Key Engineering Goal
+
+This project is not designed to demonstrate CRUD operations.
+
+The primary goal is to demonstrate:
+
+- Service ownership
+- Polyglot persistence
+- Transaction boundaries
+- Concurrency control
+- Inventory consistency
+- Distributed system thinking
+
+Inventory correctness is prioritized over throughput.
