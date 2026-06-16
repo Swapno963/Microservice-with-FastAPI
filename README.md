@@ -244,6 +244,4 @@ The primary goal is to demonstrate:
 
 Inventory correctness is prioritized over throughput.
 
-
-
-docker build -t fastapi-base:1.0 -f docker/Dockerfile.base .
+Docker Base image: docker build -t fastapi-base:1.0 -f Dockerfile.base .
