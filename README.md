@@ -89,7 +89,6 @@ Future optimizations:
 - Event-driven inventory projections
 - Kafka/RabbitMQ integration
 
-
 ## Service Communication Strategy
 
 Current State
@@ -244,3 +243,7 @@ The primary goal is to demonstrate:
 - Distributed system thinking
 
 Inventory correctness is prioritized over throughput.
+
+
+
+docker build -t fastapi-base:1.0 -f docker/Dockerfile.base .
