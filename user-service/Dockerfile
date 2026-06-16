@@ -1,20 +1,25 @@
-FROM python:3.10-slim
+# FROM python:3.10-slim
+
+# WORKDIR /app
+
+# # set environment variables
+# ENV PYTHONDONTWRITEBYTECODE=1 \
+#     PYTHONUNBUFFERED=1 \
+#     PYTHONPATH=/app
+
+# # Install system dependencies
+# RUN apt-get update && apt-get install -y --no-install-recommends \
+#     build-essential \
+#     libpq-dev \
+#     && apt-get clean \
+#     && rm -rf /var/lib/apt/lists/*
+
+
+FROM fastapi-base:1.0
 
 WORKDIR /app
 
-# set environment variables
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    PYTHONPATH=/app
-
-# Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    libpq-dev \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
-
-
+RUN apt-get update && apt-get install -y curl
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
