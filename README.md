@@ -1,247 +1,49 @@
-# Microservice Application
+# FastAPI commerce microservices
 
-This is a full-stack microservice-based application built using:
+Lab: four independently deployable services for a small e-commerce domain. Built to practice service boundaries and inventory correctness, not to run a live store.
 
-- **Frontend**: React.js / Next.js(Pending)
-- **Backend**: FastAPI (Ongoing)
-- **Databases**: PostgreSQL for inventory service and MongoDB for user,product and order service
-- **Containerization**: Docker (multi-stage Dockerfile)
+**Status:** lab. No production traffic. Frontend/Next.js is not in this repo. Payment service is not built.
 
-## Architectural Decisions
+---
 
-#### Why PostgreSQL for Inventory?
+## What it does
 
-Inventory is the only service that directly manages a scarce resource.
+| Service | Database | Job |
+| --- | --- | --- |
+| User | MongoDB (see service code; some docs mentioned Postgres) | Register, login, refresh tokens, profile, addresses |
+| Product | MongoDB | Catalog and categories |
+| Inventory | PostgreSQL | Stock, reserve/release/adjust inside transactions |
+| Order | MongoDB | Create pending orders after inventory reserve; cancel releases stock |
 
-Incorrect inventory updates can result in:
+Inventory is the scarce resource. PostgreSQL with row-level locking (`SELECT ... FOR UPDATE`) and transactional history is used so oversell is harder. Other services store documents in MongoDB. Calls between services are synchronous HTTP today.
 
-- Overselling
-- Negative stock
-- Inconsistent reservations
+If reserve fails, the order stays pending and the client can retry. Saga / outbox compensation is **not shipped**.
 
-To prevent these issues, PostgreSQL is used with:
+---
 
-- ACID transactions
-- Row-level locking (SELECT ... FOR UPDATE)
-- Transactional inventory history
+## What I built
 
-### Why MongoDB for Product, User and Order?
+- FastAPI services with their own Dockerfiles (multi-stage) and compose files
+- Inventory reserve/release/adjust under transactions
+- Order create/cancel that talks to inventory
+- Low-stock listing on inventory
 
-These services primarily store business documents and do not require
-cross-document ACID guarantees for their core operations.
+---
 
-MongoDB provides:
+## Stack
 
-- Flexible schema evolution
-- Faster iteration
-- Natural document modeling
+Python, FastAPI, PostgreSQL, MongoDB, Docker Compose. Nginx folder exists for routing experiments.
 
-### Consistency Strategy
+---
 
-This project intentionally uses different consistency models.
-
-| Service   | Database   | Consistency Model    |
-| --------- | ---------- | -------------------- |
-| Inventory | PostgreSQL | Strong Consistency   |
-| Product   | MongoDB    | Eventual Consistency |
-| User      | MongoDB    | Eventual Consistency |
-| Order     | MongoDB    | Eventual Consistency |
-
-Inventory operations are protected by database transactions.
-
-Order creation and inventory reservation are treated as separate
-service boundaries.
-
-## Failure Scenarios
-
-### Order Created but Inventory Reservation Failed
-
-Possible causes:
-
-- Insufficient stock
-- Database failure
-- Network failure
-
-Current strategy:
-
-- Order remains in pending state
-- Inventory reservation failure is returned
-- Client may retry
-
-Future improvement:
-
-- Saga Pattern
-- Outbox Pattern
-- Event-driven compensation
-
-## Scalability Considerations
-
-Current implementation:
-
-- PostgreSQL row-level locking
-- Transactional history tracking
-
-Future optimizations:
-
-- Atomic UPDATE statements
-- Read replicas
-- CQRS read models
-- Event-driven inventory projections
-- Kafka/RabbitMQ integration
-
-## Service Communication Strategy
-
-Current State
-
-- Synchronous communication via HTTP APIs
-- Simpler architecture for development and debugging
-- Explicit service boundaries
-
-Future Evolution
-
-As the system grows, event-driven communication will be introduced for:
-
-- Email notifications
-- Audit logging
-- Analytics
-- Low-stock alerts
-
-Critical business operations such as inventory reservation will remain synchronous to provide immediate consistency guarantees.
-
-## System Architecture
-
-![alt text](./project-screenshot/E-commerce%20Arch.svg)
-
-## Project Structure
-
-- **User Service**: Handles authentication, registration, and user management.
-- **Inventory Service**: Manages stock levels, warehouses, and inventory operations.
-- **Product Service**: Maintains product data, categories, and pricing.
-- *(Upcoming)* **Payment Service**: Will manage transactions, payment gateways, and order settlements.
-
-Each microservice is containerized using a **multi-stage Dockerfile** for optimized production builds.
-Each service have it's own docker-compose.yml to run services independently for testing/development.appropriate indexes implemented to avoid slow queries.
-
-## Features
-
-- Authentication and Authorization
-- RESTful APIs (FastAPI, Django REST Framework)
-- PostgreSQL and MongoDB as backend databases
-- Modern frontend with React.js and Next.js
-- Dockerized with multi-stage builds
-- Scalable and modular microservice architecture
-
-## Docker Setup
-
-#### Prerequisites
-
-- Docker
-- Docker Compose
-
-### Running the app
+## Run
 
 ```bash
-# Clone the repo
 git clone https://github.com/Swapno963/Microservice-with-FastAPI.git
 cd Microservice-with-FastAPI
-
-# Build and start all services
-docker-compose up --build
+docker compose up --build
 ```
 
-![A screenshot of the Running services](project-screenshot/docker_ps.png)
+Optional base image: `docker build -t fastapi-base:1.0 -f Dockerfile.base .`
 
-# User Microservice
-
-A dedicated microservice for managing all user-related functionality. This service handles user authentication, profile management, and account security.
-postgres is used as database.
-
-### Features
-
-This microservice includes the following key functionalities:
-
-* **Registration:** New user account creation.
-* **Login:** User authentication to grant access.
-* **Token Management:** Ability to get a new access token using a refresh token.
-* **User Profile:** Retrieve and update user profile information.
-* **Password Management:** Securely change user passwords.
-* **Address Management:** Create and manage user addresses.
-* **Account Verification:** Verify if a user account already exists.
-
-![A screenshot of the User Microservice](project-screenshot/User%20Service.png)
-
-# Product Microservice
-
-A microservice for managing all product-related functionality. This service handles product creation, update.
-Mongodb is used as database.
-
-### Features
-
-This microservice includes the following key functionalities:
-
-* **Products:** Get all the products
-* **product:** Create Product
-* **Product `<id>`:** See Detail/Update/Delete product
-* **Category:** Get category list.
-
-![A screenshot of the User Microservice](project-screenshot/Product%20Servicce.png)
-
-# Inventory Microservice
-
-This handel inventory-related functionality. This service handles Create Inventory, Check Inventory, Update inventory and keeping inventory history, Reserve inventory quantiry and keeping history of it,Relese inventory quantiry and keeping history of it,Check low stock and send mail.
-Postgres is used as database.
-
-* **Create inventory(Transaction):** Create, update inventory for a product, get inventory items
-* **reserve(Transaction):** Reserve inventory of a specific product
-* **release(****Transaction****):** release inventory of a specific product
-* **adjust(****Transaction****):** Add/Remove inventory of a specific product
-* **low-stockst(No Transaction):** Returns all the products whose available_quantity is low compare to reorderd_threshold
-* **history(No Transaction):** Get history of a specific product
-
-![A screenshot of the Inventory Microservice](project-screenshot/inventory.png)
-
-# Order Microservice
-
-A microservice for managing all Order-related functionality. This service handles product order,get all oraders, update order, cancle order.
-Mongodb is used as database.
-
-### Features
-
-This microservice includes the following key functionalities:
-
-* **orders:** Check inventory availability for all the products. Reserve inventory for all the products. Create the order in the pending status
-* **orders:**     Get all orders with optional filtering. This endpoint allows filtering by:
-  - Order status
-  - User ID
-  - Date range
-* **orders<order_id>:** Get a single order by ID.
-* **/user/{user_id}:** Get all orders for a specific user.
-* **/{order_id}/status:**     Update the status of an order. This will validate the status transition and update inventory as needed.
-* **/{order_id}:**  Cancel an order (if not shipped). This will set the order status to cancelled and release inventory.
-
-![A screenshot of the Order Microservice](project-screenshot/orders_service.png)
-
-### Upcomeing
-
-This platform evolves from a single-vendor e-commerce system into a multi-vendor SaaS solution, where:
-
-Small business owners (vendors) can register and manage their own stores
-Customers can browse and purchase from multiple vendors
-The platform earns revenue via subscription or per-user/per-request pricing
-
-## Key Engineering Goal
-
-This project is not designed to demonstrate CRUD operations.
-
-The primary goal is to demonstrate:
-
-- Service ownership
-- Polyglot persistence
-- Transaction boundaries
-- Concurrency control
-- Inventory consistency
-- Distributed system thinking
-
-Inventory correctness is prioritized over throughput.
-
-Docker Base image: docker build -t fastapi-base:1.0 -f Dockerfile.base .
+Architecture diagram: `project-screenshot/E-commerce Arch.svg`
