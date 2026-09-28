@@ -10,6 +10,7 @@ from sqlalchemy.exc import IntegrityError
 from app.models.inventory import (
     InventoryItem,
     InventoryHistory,
+    InventoryReservation,
     InventoryItemCreate,
     InventoryItemUpdate,
     InventoryItemResponse,
@@ -18,7 +19,7 @@ from app.models.inventory import (
     InventoryRelease,
     InventoryAdjust,
 )
-from app.api.dependencies import get_current_user, is_admin
+from app.api.dependencies import get_current_user, is_admin, require_service
 from app.db.postgresql import get_db
 from app.services.product import product_service
 from app.core.config import settings
@@ -34,9 +35,7 @@ router = APIRouter(prefix="", tags=["inventory"])
 async def create_inventory_item(
     item: InventoryItemCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: Dict[str, Any] = Depends(
-        is_admin
-    ),  # Only admins can create inventory
+    service: Dict[str, Any] = Depends(require_service),
 ):
     """
     Create a new inventory item.
@@ -300,24 +299,21 @@ async def update_inventory_item(
 async def reserve_inventory(
     reservation: InventoryReserve,
     db: AsyncSession = Depends(get_db),
-    current_user: Dict[str, Any] = Depends(get_current_user),
+    service: Dict[str, Any] = Depends(require_service),
 ):
+    """
+    Reserve inventory for an order.
+
+    The inventory row is locked with SELECT ... FOR UPDATE. Counters and the
+    reservation row commit together. A second call for the same order and
+    product returns the existing hold.
+    """
     async with db.begin():
-
-        """
-        Reserve inventory for an order.
-
-        This will:
-        1. Check if inventory is available
-        2. Reduce available quantity and increase reserved quantity
-        3. Create a history entry
-        """
-        # Check if inventory exists and has sufficient quantity
-        query = (select(InventoryItem)
-                .where(InventoryItem.product_id == reservation.product_id)
-                .with_for_update()
+        result = await db.execute(
+            select(InventoryItem)
+            .where(InventoryItem.product_id == reservation.product_id)
+            .with_for_update()
         )
-        result = await db.execute(query)
         item = result.scalars().first()
 
         if not item:
@@ -326,77 +322,131 @@ async def reserve_inventory(
                 detail=f"Inventory for product {reservation.product_id} not found",
             )
 
+        existing = None
+        if reservation.order_id:
+            existing_result = await db.execute(
+                select(InventoryReservation)
+                .where(
+                    InventoryReservation.order_id == reservation.order_id,
+                    InventoryReservation.product_id == reservation.product_id,
+                )
+                .with_for_update()
+            )
+            existing = existing_result.scalars().first()
+            if existing and existing.status == "held":
+                logger.info(
+                    "Reserve already held for order %s product %s",
+                    reservation.order_id,
+                    reservation.product_id,
+                )
+                return {
+                    "reserved": True,
+                    "idempotent": True,
+                    "product_id": reservation.product_id,
+                    "quantity": existing.quantity,
+                    "available_quantity": item.available_quantity,
+                    "reserved_quantity": item.reserved_quantity,
+                    "order_id": reservation.order_id,
+                }
+
         if item.available_quantity < reservation.quantity:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Insufficient inventory. Requested: {reservation.quantity}, Available: {item.available_quantity}",
+                detail=(
+                    f"Insufficient inventory. Requested: {reservation.quantity}, "
+                    f"Available: {item.available_quantity}"
+                ),
             )
 
-        # Update inventory
-        new_available = item.available_quantity - reservation.quantity
-        new_reserved = item.reserved_quantity + reservation.quantity
-
-
-        item.available_quantity=new_available,
-        item.reserved_quantity=new_reserved,
-        item.updated_at=func.now(),
-   
-
-        # result = await db.execute(query)
-        # updated_item = result.scalars().first()
-
-        # Add history record
-        history_entry = InventoryHistory(
-            product_id=reservation.product_id,
-            quantity_change=-reservation.quantity,
-            previous_quantity=item.available_quantity,
-            new_quantity=new_available,
-            change_type="reserve",
-            reference_id=reservation.order_id,
+        previous_available = item.available_quantity
+        update_result = await db.execute(
+            update(InventoryItem)
+            .where(InventoryItem.id == item.id)
+            .where(InventoryItem.available_quantity >= reservation.quantity)
+            .values(
+                available_quantity=InventoryItem.available_quantity
+                - reservation.quantity,
+                reserved_quantity=InventoryItem.reserved_quantity
+                + reservation.quantity,
+                updated_at=datetime.utcnow(),
+            )
+            .execution_options(synchronize_session="fetch")
         )
-        db.add(history_entry)
-
-        await db.commit()
-
-        # Transaction committed here
+        if update_result.rowcount != 1:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    f"Insufficient inventory. Requested: {reservation.quantity}, "
+                    f"Available: {item.available_quantity}"
+                ),
+            )
         await db.refresh(item)
+        new_available = item.available_quantity
+        new_reserved = item.reserved_quantity
 
+        if existing:
+            existing.quantity = reservation.quantity
+            existing.status = "held"
+            existing.expires_at = reservation.expires_at
+            existing.updated_at = datetime.utcnow()
+        elif reservation.order_id:
+            db.add(
+                InventoryReservation(
+                    order_id=reservation.order_id,
+                    product_id=reservation.product_id,
+                    quantity=reservation.quantity,
+                    status="held",
+                    expires_at=reservation.expires_at,
+                )
+            )
 
-        # Check for low stock
-        await check_and_notify_low_stock(item)
-
-        logger.info(
-            f"Reserved {reservation.quantity} units of product {reservation.product_id}"
+        db.add(
+            InventoryHistory(
+                product_id=reservation.product_id,
+                quantity_change=-reservation.quantity,
+                previous_quantity=previous_available,
+                new_quantity=new_available,
+                change_type="reserve",
+                reference_id=reservation.order_id,
+            )
         )
 
-        return {
-            "reserved": True,
-            "product_id": reservation.product_id,
-            "quantity": reservation.quantity,
-            "available_quantity": new_available,
-            "reserved_quantity": new_reserved,
-        }
+    await check_and_notify_low_stock(item)
+
+    logger.info(
+        "Reserved %s units of product %s for order %s",
+        reservation.quantity,
+        reservation.product_id,
+        reservation.order_id,
+    )
+
+    return {
+        "reserved": True,
+        "idempotent": False,
+        "product_id": reservation.product_id,
+        "quantity": reservation.quantity,
+        "available_quantity": new_available,
+        "reserved_quantity": new_reserved,
+        "order_id": reservation.order_id,
+    }
 
 
 @router.post("/release", response_model=Dict[str, Any])
 async def release_inventory(
     release: InventoryRelease,
     db: AsyncSession = Depends(get_db),
-    current_user: Dict[str, Any] = Depends(get_current_user),
+    service: Dict[str, Any] = Depends(require_service),
 ):
     """
     Release previously reserved inventory safely using row-level locking.
     """
 
     async with db.begin():
-
-        # Lock row (prevents concurrent modifications)
         result = await db.execute(
             select(InventoryItem)
             .where(InventoryItem.product_id == release.product_id)
             .with_for_update()
         )
-
         item = result.scalars().first()
 
         if not item:
@@ -405,57 +455,99 @@ async def release_inventory(
                 detail=f"Inventory for product {release.product_id} not found",
             )
 
-        # Safe release calculation (no mutation of request object)
-        release_qty = release.quantity
-
-        if item.reserved_quantity <= 0:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="No reserved inventory to release",
+        reservation_row = None
+        if release.order_id:
+            reservation_result = await db.execute(
+                select(InventoryReservation)
+                .where(
+                    InventoryReservation.order_id == release.order_id,
+                    InventoryReservation.product_id == release.product_id,
+                )
+                .with_for_update()
             )
+            reservation_row = reservation_result.scalars().first()
+            if reservation_row is None or reservation_row.status != "held":
+                logger.info(
+                    "Release no-op for order %s product %s",
+                    release.order_id,
+                    release.product_id,
+                )
+                return {
+                    "released": True,
+                    "already_released": True,
+                    "product_id": release.product_id,
+                    "quantity": 0,
+                    "available_quantity": item.available_quantity,
+                    "reserved_quantity": item.reserved_quantity,
+                    "order_id": release.order_id,
+                }
+            release_qty = reservation_row.quantity
+        else:
+            release_qty = release.quantity
+            if item.reserved_quantity <= 0:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="No reserved inventory to release",
+                )
+            if release_qty > item.reserved_quantity:
+                logger.warning(
+                    "Release capped. Requested=%s, Reserved=%s",
+                    release_qty,
+                    item.reserved_quantity,
+                )
+                release_qty = item.reserved_quantity
 
-        if release_qty > item.reserved_quantity:
-            logger.warning(
-                f"Release capped. Requested={release_qty}, "
-                f"Reserved={item.reserved_quantity}"
-            )
-            release_qty = item.reserved_quantity
-
-        # Store previous values (for history + response)
         previous_available = item.available_quantity
-        previous_reserved = item.reserved_quantity
-
-        # Apply updates (ORM-managed state change)
-        item.available_quantity = item.available_quantity + release_qty
-        item.reserved_quantity = item.reserved_quantity - release_qty
-        item.updated_at = func.now()
-
-        # History record
-        history_entry = InventoryHistory(
-            product_id=release.product_id,
-            quantity_change=release_qty,
-            previous_quantity=previous_available,
-            new_quantity=item.available_quantity,
-            change_type="release",
-            reference_id=release.order_id,
+        update_result = await db.execute(
+            update(InventoryItem)
+            .where(InventoryItem.id == item.id)
+            .where(InventoryItem.reserved_quantity >= release_qty)
+            .values(
+                available_quantity=InventoryItem.available_quantity + release_qty,
+                reserved_quantity=InventoryItem.reserved_quantity - release_qty,
+                updated_at=datetime.utcnow(),
+            )
+            .execution_options(synchronize_session="fetch")
         )
+        if update_result.rowcount != 1:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Reserved quantity changed before release could commit",
+            )
+        await db.refresh(item)
 
-        db.add(history_entry)
+        if reservation_row is not None:
+            reservation_row.status = "released"
+            reservation_row.updated_at = datetime.utcnow()
 
-    # transaction commits here
-
-    await db.refresh(item)
+        db.add(
+            InventoryHistory(
+                product_id=release.product_id,
+                quantity_change=release_qty,
+                previous_quantity=previous_available,
+                new_quantity=item.available_quantity,
+                change_type="release",
+                reference_id=release.order_id,
+            )
+        )
+        available_quantity = item.available_quantity
+        reserved_quantity = item.reserved_quantity
 
     logger.info(
-        f"Released {release_qty} units of product {release.product_id}"
+        "Released %s units of product %s for order %s",
+        release_qty,
+        release.product_id,
+        release.order_id,
     )
 
     return {
         "released": True,
+        "already_released": False,
         "product_id": release.product_id,
         "quantity": release_qty,
-        "available_quantity": item.available_quantity,
-        "reserved_quantity": item.reserved_quantity,
+        "available_quantity": available_quantity,
+        "reserved_quantity": reserved_quantity,
+        "order_id": release.order_id,
     }
 
 

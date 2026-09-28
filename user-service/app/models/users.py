@@ -32,6 +32,7 @@ class User(Base):
     last_name = Column(String, nullable=False)
     phone = Column(String, nullable=True)
     is_active = Column(Boolean, nullable=False, default=True)
+    is_admin = Column(Boolean, nullable=False, default=False)
 
     # When user was created and last updated
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -117,6 +118,7 @@ class UserResponse(UserBase):
 
     id: int
     is_active: bool
+    is_admin: bool = False
     created_at: datetime
     addresses: List[AddressResponse] = []
 

@@ -50,5 +50,25 @@ class ProductServiceClient:
 
         return True
 
+    async def get_product(self, product_id: str) -> Optional[Dict]:
+        """Return a product document, or None when it cannot be verified."""
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.get(
+                    f"{self.base_url}/products/{product_id}"
+                )
+        except httpx.RequestError as exc:
+            logger.error("Error fetching product %s: %s", product_id, exc)
+            return None
+
+        if response.status_code != 200:
+            logger.warning(
+                "Product %s could not be verified (status %s)",
+                product_id,
+                response.status_code,
+            )
+            return None
+        return response.json()
+
 
 product_service = ProductServiceClient()

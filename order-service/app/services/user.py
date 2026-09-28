@@ -25,37 +25,32 @@ class UserService:
         Returns:
             bool: True if user exists and is active, False otherwise
         """
-        logger.info(f"Verifying user: {user_id}")
+        logger.info("Verifying user: %s", user_id)
+        if not user_id.isdigit():
+            logger.warning("Rejected non-numeric user id: %s", user_id)
+            return False
         try:
-            # Convert to int for compatibility with User Service
-            try:
-                # If it's a MongoDB ObjectId, we need to handle differently
-                # For now, just for testing, we'll accept any user_id format
-                # In production, you'd need a proper mapping between services
-                int_user_id = int(user_id) if user_id.isdigit() else 1
-                url = f"{self.base_url}/users/{int_user_id}/verify"
-            except ValueError:
-                # If it's not a valid integer, use ID 1 for testing
-                url = f"{self.base_url}/users/1/verify"
+            url = f"{self.base_url}/users/{int(user_id)}/verify"
 
             async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.get(url)
+                response = await client.get(
+                    url,
+                    headers={
+                        "X-Service-Token": settings.INTERNAL_SERVICE_TOKEN,
+                    },
+                )
 
                 if response.status_code == 200:
                     result = response.json()
                     return result.get("valid", False)
-                else:
-                    # For testing purposes, return True regardless of response
-                    # In production, you'd want to handle this properly
-                    logger.warning(
-                        f"User verification temporarily bypassed for testing"
-                    )
-                    return True
+                logger.warning(
+                    "User verification failed with status %s",
+                    response.status_code,
+                )
+                return False
         except httpx.RequestError as e:
-            logger.error(f"Error verifying user: {str(e)}")
-            # For testing purposes, return True despite the error
-            # In production, you'd want to handle this properly
-            return True
+            logger.error("Error verifying user: %s", e)
+            return False
 
 
 user_service = UserService()

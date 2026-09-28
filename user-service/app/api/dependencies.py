@@ -12,7 +12,7 @@ from jose import jwt, JWTError
 
 # Define OAuth2 password flow for token authentication
 oauth2_scheme = OAuth2PasswordBearer(
-    tokenUrl=f"{settings.API_PREFIX}/auth/login", scheme_name="JWT"
+    tokenUrl=f"{settings.API_PREFIX}/login", scheme_name="JWT"
 )
 
 

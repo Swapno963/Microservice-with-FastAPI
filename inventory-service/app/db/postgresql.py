@@ -34,6 +34,9 @@ Base = declarative_base()
 
 async def initialize_db():
     """Initialize database with required tables."""
+    # Import models so reservation rows are included in create_all.
+    from app.models import inventory as inventory_models  # noqa: F401
+
     async with engine.begin() as conn:
         # Create tables if they don't exist
         await conn.run_sync(Base.metadata.create_all)

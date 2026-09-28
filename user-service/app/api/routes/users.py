@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Path, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Path, Query, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.dependencies import get_current_user, get_db, get_user_by_id
 from typing import List, Any, Dict, Optional
@@ -14,6 +14,7 @@ from app.models.users import (
     AddressCreate,
 )
 from app.core.security import verify_password, get_password_hash
+from app.core.config import settings
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -34,6 +35,7 @@ async def get_current_user_profile(
         last_name=current_user.last_name,
         phone=current_user.phone,
         is_active=current_user.is_active,
+        is_admin=current_user.is_admin,
         created_at=current_user.created_at,
         addresses=[
             AddressResponse(
@@ -81,6 +83,7 @@ async def update_current_user_profile(
         last_name=current_user.last_name,
         phone=current_user.phone,
         is_active=current_user.is_active,
+        is_admin=current_user.is_admin,
         created_at=current_user.created_at,
         addresses=[
             AddressResponse(
@@ -245,11 +248,19 @@ async def get_user_address(
 # Most importend element of microservice
 @router.get("/{user_id}/verify", response_model=Dict[str, Any])
 async def verify_user_exists(
-    user_id: int, db: AsyncSession = Depends(get_db)
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+    x_service_token: str = Header(..., alias="X-Service-Token"),
 ) -> Dict[str, Any]:
     """verify if a user exists and is active.
     This endpoint is used by other services to validate users
     """
+
+    if x_service_token != settings.INTERNAL_SERVICE_TOKEN:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid service credentials",
+        )
 
     user = await get_user_by_id(db, user_id)
 

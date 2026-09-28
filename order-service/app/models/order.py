@@ -58,17 +58,8 @@ class OrderAddress(BaseModel):
 class OrderCreate(BaseModel):
     """Model for creating a new order."""
 
-    user_id: str
     items: List[OrderItem] = Field(..., min_items=1)
     shipping_address: OrderAddress
-
-    # Modified validator to accept any string for testing
-    @validator("user_id")
-    def validate_user_id(cls, v):
-        # Accept any non-empty string for user_id
-        if not v or not isinstance(v, str):
-            raise ValueError("User ID must be a non-empty string")
-        return v
 
     @validator("items")
     def validate_items(cls, v):
@@ -98,6 +89,9 @@ class OrderResponse(BaseModel):
     items: List[OrderItem]
     total_price: condecimal(max_digits=10, decimal_places=2)
     status: str
+    reservation_state: str = "pending"
+    reserve_attempts: int = 0
+    reservation_expires_at: Optional[datetime] = None
     shipping_address: OrderAddress
     created_at: datetime
     updated_at: datetime

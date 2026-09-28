@@ -6,6 +6,7 @@ from sqlalchemy import (
     ForeignKey,
     Boolean,
     CheckConstraint,
+    UniqueConstraint,
 )
 from sqlalchemy.sql import func
 from sqlalchemy.ext.declarative import declarative_base
@@ -42,6 +43,29 @@ class InventoryItem(Base):
         ),
         CheckConstraint(
             "reserved_quantity >= 0", name="check_reserved_quantity_positive"
+        ),
+    )
+
+
+class InventoryReservation(Base):
+    """One hold per order line. A second reserve for the same pair is a no-op."""
+
+    __tablename__ = "inventory_reservations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    order_id = Column(String, nullable=False, index=True)
+    product_id = Column(String, nullable=False, index=True)
+    quantity = Column(Integer, nullable=False)
+    status = Column(String, nullable=False, default="held")  # "held" or "released"
+    expires_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "order_id", "product_id", name="uq_reservation_order_product"
         ),
     )
 
@@ -111,6 +135,7 @@ class InventoryReserve(BaseModel):
     product_id: str
     quantity: int = Field(..., gt=0)
     order_id: Optional[str] = None
+    expires_at: Optional[datetime] = None
 
     @validator("quantity")
     def validate_quantity(cls, v):

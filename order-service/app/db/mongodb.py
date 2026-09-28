@@ -29,6 +29,12 @@ async def connect_to_mongo():
     await mongodb.db["orders"].create_index("user_id")
     await mongodb.db["orders"].create_index("status")
     await mongodb.db["orders"].create_index("created_at")
+    await mongodb.db["orders"].create_index(
+        [("user_id", 1), ("idempotency_key", 1)],
+        unique=True,
+        name="uq_order_user_idempotency",
+        partialFilterExpression={"idempotency_key": {"$type": "string"}},
+    )
 
     logger.info("Connected to MongoDB!")
 

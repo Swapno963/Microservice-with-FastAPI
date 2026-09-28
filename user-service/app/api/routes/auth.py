@@ -53,6 +53,7 @@ async def register(user_create: UserCreate, db: AsyncSession = Depends(get_db)) 
         last_name=db_user.last_name,
         phone=db_user.phone,
         is_active=db_user.is_active,
+        is_admin=db_user.is_admin,
         created_at=db_user.created_at,
         addresses=[],
     )
@@ -90,12 +91,14 @@ async def login(
     # Create token
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": str(user.id)}, expires_delta=access_token_expires
+        data={"sub": str(user.id), "is_admin": user.is_admin},
+        expires_delta=access_token_expires,
     )
 
     refresh_token_expires = timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
     refresh_token = create_refresh_token(
-        data={"sub": str(user.id)}, expires_delta=refresh_token_expires
+        data={"sub": str(user.id), "is_admin": user.is_admin},
+        expires_delta=refresh_token_expires,
     )
 
     return {
@@ -141,12 +144,14 @@ async def refresh_token(
     # Create new tokens
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": str(user.id)}, expires_delta=access_token_expires
+        data={"sub": str(user.id), "is_admin": user.is_admin},
+        expires_delta=access_token_expires,
     )
 
     refresh_token_expires = timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
     new_refresh_token = create_refresh_token(
-        data={"sub": str(user.id)}, expires_delta=refresh_token_expires
+        data={"sub": str(user.id), "is_admin": user.is_admin},
+        expires_delta=refresh_token_expires,
     )
 
     return {

@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes import orders
 from app.core.config import settings
 from app.db.mongodb import close_mongo_connection, connect_to_mongo
+from app.queue import close_redis, connect_redis
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -17,7 +18,7 @@ app = FastAPI(
 # Set up CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # For production, restrict to specific origins
+    allow_origins=[settings.CORS_ORIGIN],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -27,6 +28,8 @@ app.include_router(orders.router, prefix=settings.API_PREFIX)
 
 # Register startup and shutdown events
 app.add_event_handler("startup", connect_to_mongo)
+app.add_event_handler("startup", connect_redis)
+app.add_event_handler("shutdown", close_redis)
 app.add_event_handler("shutdown", close_mongo_connection)
 
 # Health check endpoint

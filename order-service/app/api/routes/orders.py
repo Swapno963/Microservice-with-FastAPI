@@ -1,17 +1,20 @@
-from fastapi import APIRouter, Depends, HTTPException, Path, Query, Body, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Path, Query, Body, status
+import hashlib
 import logging
+import time
 from app.models.order import OrderCreate, OrderUpdate, OrderResponse, OrderStatusUpdate
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from app.api.dependencies import get_db, get_current_user
 from typing import List, Optional, Dict, Any
 from app.services.user import user_service
 from app.services.product import product_service
-from app.services.inventory import inventory_service
 from app.core.config import settings
+from app.queue import RELEASE_QUEUE, enqueue_release, enqueue_reserve, get_redis, lock_key
 from bson import ObjectId
 from decimal import Decimal
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pymongo import ReturnDocument
+from pymongo.errors import DuplicateKeyError
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -21,24 +24,50 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="", tags=["orders"])
 
 
-@router.post("/", response_model=OrderResponse, status_code=status.HTTP_201_CREATED)
+def _redis_or_503():
+    redis = get_redis()
+    if redis is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Reservation queue is unavailable",
+        )
+    return redis
+
+
+@router.post("/", response_model=OrderResponse, status_code=status.HTTP_202_ACCEPTED)
 async def create_order(
     order: OrderCreate,
     db: AsyncIOMotorDatabase = Depends(get_db),
     current_user: Dict[str, Any] = Depends(get_current_user),
+    idempotency_key: str = Header(
+        ...,
+        alias="Idempotency-Key",
+        min_length=8,
+        max_length=128,
+    ),
 ):
     """
-    Create a new order.
+    Create a pending order and enqueue reservation.
 
-    1. Verify the usesr exists.
-    2. Verify all products exists and prices are correct.
-    3. Check inventory availability for all the products.
-    4. Reserve inventory for all the products.
-    5. Create the order in the pending status
-
+    The handler does not call inventory. The worker reserves stock and retries.
     """
     # Verify user exists
-    user_valid = await user_service.verify_user(order.user_id)
+    user_id = str(current_user["sub"])
+    request_hash = hashlib.sha256(
+        order.json(sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+    existing_order = await db["orders"].find_one(
+        {"user_id": user_id, "idempotency_key": idempotency_key}
+    )
+    if existing_order:
+        if existing_order.get("request_hash") != request_hash:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Idempotency key was already used for a different order",
+            )
+        return existing_order
+
+    user_valid = await user_service.verify_user(user_id)
     if not user_valid:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid user ID"
@@ -52,34 +81,12 @@ async def create_order(
             detail="One or more products are invalid or have incorrect prices",
         )
 
-    # Check inventory availability for all items
-    inventory_checks = []
-    for item in order.items:
-        inventory_available = await inventory_service.check_inventory(
-            item.product_id, item.quantity
-        )
-        inventory_checks.append((item, inventory_available))
-
-    if not all(available for _, available in inventory_checks):
-        unavailable_items = [
-            f"Product {item.product_id} (quantity: {item.quantity})"
-            for item, available in inventory_checks
-            if not available
-        ]
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Insufficient inventory for: {', '.join(unavailable_items)}",
-        )
-
-    # Reserve inventory for all items
-    for item, _ in inventory_checks:
-        await inventory_service.reserve_inventory(item.product_id, item.quantity)
-
     # Calculate total price
     total_price = sum(Decimal(str(item.price)) * item.quantity for item in order.items)
 
     # Create the order
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
+    reservation_expires_at = now + timedelta(seconds=settings.RESERVATION_TTL_SECONDS)
 
     # Convert order items to dictionary format, explicitly converting Decimal to float
     items_dict = []
@@ -93,21 +100,53 @@ async def create_order(
         )
 
     order_dict = {
-        "user_id": order.user_id,
+        "user_id": user_id,
+        "idempotency_key": idempotency_key,
+        "request_hash": request_hash,
         "items": items_dict,
         "total_price": float(total_price),  # Convert Decimal to float for MongoDB
         "status": settings.ORDER_STATUS["PENDING"],
+        "reservation_state": "pending",
+        "reserve_attempts": 0,
+        "reservation_expires_at": reservation_expires_at,
         "shipping_address": order.shipping_address.dict(),
         "created_at": now,
         "updated_at": now,
     }
 
-    result = await db["orders"].insert_one(order_dict)
+    try:
+        result = await db["orders"].insert_one(order_dict)
+    except DuplicateKeyError:
+        existing_order = await db["orders"].find_one(
+            {"user_id": user_id, "idempotency_key": idempotency_key}
+        )
+        if (
+            existing_order
+            and existing_order.get("request_hash") == request_hash
+        ):
+            return existing_order
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Idempotency key was already used for a different order",
+        )
+    order_id = str(result.inserted_id)
 
-    # Retrieve the created order
+    try:
+        await enqueue_reserve(_redis_or_503(), order_id)
+    except HTTPException:
+        await db["orders"].delete_one({"_id": result.inserted_id})
+        raise
+    except Exception:
+        await db["orders"].delete_one({"_id": result.inserted_id})
+        logger.exception("Failed to enqueue reservation for order %s", order_id)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Could not queue reservation",
+        )
+
     created_order = await db["orders"].find_one({"_id": result.inserted_id})
 
-    logger.info(f"Created order: {result.inserted_id}")
+    logger.info("Created pending order %s", order_id)
     return created_order
 
 
@@ -131,6 +170,8 @@ async def get_orders(
     - Date range
     """
     query = {}
+    if not current_user.get("is_admin", False):
+        query["user_id"] = str(current_user["sub"])
 
     # Apply filters if provided
     if status:
@@ -142,12 +183,14 @@ async def get_orders(
         query["status"] = status
 
     if user_id:
-        try:
-            query["user_id"] = str(ObjectId(user_id))
-        except:
+        if not current_user.get("is_admin", False) and user_id != str(
+            current_user["sub"]
+        ):
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid user ID format"
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You can only view your own orders",
             )
+        query["user_id"] = user_id
 
     # Date filtering
     date_filter = {}
@@ -204,6 +247,14 @@ async def get_order(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Order with ID {order_id} not found",
         )
+    if (
+        not current_user.get("is_admin", False)
+        and order["user_id"] != str(current_user["sub"])
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Order with ID {order_id} not found",
+        )
 
     return order
 
@@ -220,10 +271,13 @@ async def get_user_orders(
     """
     Get all orders for a specific user.
     """
-    # Validate the user ID
-    if not ObjectId.is_valid(user_id):
+    if (
+        not current_user.get("is_admin", False)
+        and user_id != str(current_user["sub"])
+    ):
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid user ID format"
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only view your own orders",
         )
 
     # Build the query
@@ -254,7 +308,7 @@ async def update_order_status(
     """
     Update the status of an order.
 
-    This will validate the status transition and update inventory as needed.
+    Cancelling enqueues a release. The worker calls inventory.
     """
     # Validate the order ID
     if not ObjectId.is_valid(order_id):
@@ -269,9 +323,34 @@ async def update_order_status(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Order with ID {order_id} not found",
         )
+    if (
+        not current_user.get("is_admin", False)
+        and order["user_id"] != str(current_user["sub"])
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Order with ID {order_id} not found",
+        )
 
     current_status = order["status"]
     new_status = status_update.status
+    if not current_user.get("is_admin", False) and new_status != "cancelled":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Customers can only cancel orders",
+        )
+    if new_status == settings.ORDER_STATUS["PAID"]:
+        if order.get("reservation_state") != "reserved":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="An order can only be marked paid while stock is reserved",
+            )
+        expires_at = order.get("reservation_expires_at")
+        if expires_at and expires_at <= datetime.utcnow():
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="The stock reservation has expired",
+            )
 
     # Check if the status transition is allowed
     if new_status not in settings.ALLOWED_STATUS_TRANSITIONS.get(current_status, []):
@@ -282,22 +361,56 @@ async def update_order_status(
             detail=f"Invalid status transition from '{current_status}' to '{new_status}'. Allowed transitions: {allowed_str}",
         )
 
-    # Handle inventory updates for specific transitions
-    if current_status == settings.ORDER_STATUS["PENDING"] and new_status in [
-        settings.ORDER_STATUS["CANCELLED"]
-    ]:
-        # Release inventory if order is cancelled from pending state
-        for item in order["items"]:
-            await inventory_service.release_inventory(
-                item["product_id"], item["quantity"]
+    cancel_statuses = [
+        settings.ORDER_STATUS["PENDING"],
+        settings.ORDER_STATUS["PAID"],
+        settings.ORDER_STATUS["PROCESSING"],
+    ]
+    should_release = (
+        new_status == settings.ORDER_STATUS["CANCELLED"]
+        and current_status in cancel_statuses
+    )
+
+    redis = _redis_or_503()
+    payment_lock = False
+    if new_status == settings.ORDER_STATUS["PAID"]:
+        payment_lock = bool(
+            await redis.set(lock_key(order_id), "status-update", nx=True, ex=30)
+        )
+        if not payment_lock:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Reservation is being updated. Try again.",
             )
 
-    # Update the order status
-    updated_order = await db["orders"].find_one_and_update(
-        {"_id": ObjectId(order_id)},
-        {"$set": {"status": new_status, "updated_at": datetime.utcnow()}},
-        return_document=ReturnDocument.AFTER,
-    )
+    try:
+        updated_order = await db["orders"].find_one_and_update(
+            {"_id": ObjectId(order_id), "status": current_status},
+            {"$set": {"status": new_status, "updated_at": datetime.utcnow()}},
+            return_document=ReturnDocument.AFTER,
+        )
+        if not updated_order:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Order status changed. Refresh and try again.",
+            )
+        if new_status == settings.ORDER_STATUS["PAID"]:
+            await redis.zrem(RELEASE_QUEUE, order_id)
+    finally:
+        if payment_lock:
+            await redis.delete(lock_key(order_id))
+
+    if should_release:
+        try:
+            await enqueue_release(redis, order_id, time.time())
+        except HTTPException:
+            raise
+        except Exception:
+            logger.exception("Failed to enqueue release for order %s", order_id)
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Order was cancelled but the release could not be queued",
+            )
 
     logger.info(
         f"Updated order {order_id} status from {current_status} to {new_status}"
@@ -314,7 +427,7 @@ async def cancel_order(
     """
     Cancel an order (if not shipped).
 
-    This will set the order status to cancelled and release inventory.
+    This will set the order status to cancelled and enqueue a stock release.
     """
     # Validate the order ID
     if not ObjectId.is_valid(order_id):
@@ -329,8 +442,32 @@ async def cancel_order(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Order with ID {order_id} not found",
         )
+    if (
+        not current_user.get("is_admin", False)
+        and order["user_id"] != str(current_user["sub"])
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Order with ID {order_id} not found",
+        )
 
     current_status = order["status"]
+
+    if (
+        current_status == settings.ORDER_STATUS["CANCELLED"]
+        and order.get("reservation_state") == "reserved"
+    ):
+        try:
+            await enqueue_release(_redis_or_503(), order_id, time.time())
+        except HTTPException:
+            raise
+        except Exception:
+            logger.exception("Failed to requeue release for order %s", order_id)
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Could not queue reservation release",
+            )
+        return None
 
     # Check if the order can be cancelled
     non_cancellable = [
@@ -346,19 +483,6 @@ async def cancel_order(
             detail=f"Cannot cancel order in '{current_status}' status",
         )
 
-    # Release inventory if the order was in a state that had reserved inventory
-    inventory_states = [
-        settings.ORDER_STATUS["PENDING"],
-        settings.ORDER_STATUS["PAID"],
-        settings.ORDER_STATUS["PROCESSING"],
-    ]
-
-    if current_status in inventory_states:
-        for item in order["items"]:
-            await inventory_service.release_inventory(
-                item["product_id"], item["quantity"]
-            )
-
     # Update the order status to cancelled
     await db["orders"].update_one(
         {"_id": ObjectId(order_id)},
@@ -369,6 +493,17 @@ async def cancel_order(
             }
         },
     )
+
+    try:
+        await enqueue_release(_redis_or_503(), order_id, time.time())
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("Failed to enqueue release for order %s", order_id)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Order was cancelled but the release could not be queued",
+        )
 
     logger.info(f"Cancelled order {order_id}")
     return None

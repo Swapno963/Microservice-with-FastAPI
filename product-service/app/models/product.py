@@ -27,8 +27,8 @@ class ProductBase(BaseModel):
     name: str
     description: str
     category: str
-    price: float
-    quantity: int
+    price: float = Field(..., gt=0)
+    quantity: int = Field(..., ge=0)
 
     class Config:
         schema_extra = {
@@ -65,8 +65,8 @@ class ProductUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     category: Optional[str] = None
-    price: Optional[float] = None
-    quantity: Optional[int] = None
+    price: Optional[float] = Field(None, gt=0)
+    quantity: Optional[int] = Field(None, ge=0)
 
     class Config:
         schema_extra = {

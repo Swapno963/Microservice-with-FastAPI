@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     DEBUG: bool = False
     PROJECT_NAME: str = "Order Service"
     PORT: int = 8001
+    CORS_ORIGIN: str = "http://localhost:8080"
     
     # MongoDB settings
     MONGODB_URI: str = "mongodb://localhost:27017"
@@ -23,10 +24,17 @@ class Settings(BaseSettings):
     # Retry Configuration
     MAX_RETRIES: int = 3
     RETRY_DELAY: int = 1  # seconds
+
+    # Reservation worker
+    REDIS_URL: str = "redis://localhost:6379/0"
+    RESERVATION_TTL_SECONDS: int = 900
+    MAX_RESERVE_ATTEMPTS: int = 5
+    RESERVE_BACKOFF_SECONDS: List[int] = [5, 15, 45, 45, 45]
     
-    # JWT Auth settings (for testing/development)
-    SECRET_KEY: str = "development-secret-key"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+    # Authentication shared with the user service.
+    JWT_SECRET_KEY: str
+    JWT_ALGORITHM: str = "HS256"
+    INTERNAL_SERVICE_TOKEN: str
     
     # Order status codes
     ORDER_STATUS: Dict[str, str] = {

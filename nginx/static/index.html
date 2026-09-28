@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ShopVerse</title>
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+  <header>
+    <a class="brand" href="/">ShopVerse</a>
+    <nav>
+      <button id="catalog-tab" class="link active">Shop</button>
+      <button id="orders-tab" class="link">My orders</button>
+      <button id="auth-button" class="button">Sign in</button>
+    </nav>
+  </header>
+
+  <main>
+    <section id="notice" class="notice hidden" role="status"></section>
+
+    <section id="catalog-view">
+      <div class="hero">
+        <p class="eyebrow">Simple shopping</p>
+        <h1>Find what you need.</h1>
+        <p>Stock is held after checkout. We will show you when your reservation is confirmed.</p>
+      </div>
+      <div id="products" class="product-grid" aria-live="polite"></div>
+      <p id="products-empty" class="empty hidden">No products are available yet.</p>
+    </section>
+
+    <section id="orders-view" class="hidden">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Your purchases</p>
+          <h1>Orders</h1>
+        </div>
+        <button id="refresh-orders" class="button secondary">Refresh</button>
+      </div>
+      <div id="orders" class="order-list"></div>
+      <p id="orders-empty" class="empty hidden">You have no orders yet.</p>
+    </section>
+  </main>
+
+  <dialog id="auth-dialog">
+    <form id="auth-form" method="dialog">
+      <button type="button" class="close" aria-label="Close">×</button>
+      <h2 id="auth-title">Sign in</h2>
+      <label>Email <input id="email" type="email" autocomplete="email" required></label>
+      <label>Password <input id="password" type="password" autocomplete="current-password" required></label>
+      <div id="register-fields" class="hidden">
+        <label>First name <input id="first-name" autocomplete="given-name"></label>
+        <label>Last name <input id="last-name" autocomplete="family-name"></label>
+      </div>
+      <p id="auth-error" class="error hidden"></p>
+      <button id="auth-submit" class="button wide" type="submit">Sign in</button>
+      <button id="auth-switch" class="link wide" type="button">Create an account</button>
+    </form>
+  </dialog>
+
+  <dialog id="checkout-dialog">
+    <form id="checkout-form" method="dialog">
+      <button type="button" class="close" aria-label="Close">×</button>
+      <h2>Reserve your item</h2>
+      <p id="checkout-product"></p>
+      <label>Address <input id="line1" autocomplete="street-address" required></label>
+      <label>City <input id="city" autocomplete="address-level2" required></label>
+      <label>State or region <input id="state" autocomplete="address-level1" required></label>
+      <label>Postal code <input id="postal-code" autocomplete="postal-code" required></label>
+      <label>Country <input id="country" autocomplete="country-name" required></label>
+      <p id="checkout-error" class="error hidden"></p>
+      <button class="button wide" type="submit">Place order</button>
+      <p class="fine-print">This demo reserves stock. It does not collect payment.</p>
+    </form>
+  </dialog>
+
+  <script src="/app.js" defer></script>
+</body>
+</html>

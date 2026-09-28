@@ -2,7 +2,7 @@ import logging
 from fastapi import APIRouter, Depends, Query, HTTPException, Path
 from app.models.product import ProductResponse, ProductCreate, PyObjectId, ProductUpdate
 from motor.motor_asyncio import AsyncIOMotorDatabase
-from app.api.dependencies import get_db, get_current_user
+from app.api.dependencies import get_db, require_admin
 from typing import List, Optional, Dict, Any
 from app.services.inventory_service import inventory_service
 from pymongo import ReturnDocument
@@ -18,7 +18,7 @@ router = APIRouter(prefix="", tags=["Products"])
 async def create_product(
     product: ProductCreate,
     db: AsyncIOMotorDatabase = Depends(get_db),
-    current_user: Dict[str, Any] = Depends(get_current_user),
+    current_user: Dict[str, Any] = Depends(require_admin),
 ):
     """
     Create a new product and automatically create inventory for it.
@@ -32,25 +32,24 @@ async def create_product(
     if not created_product:
         raise HTTPException(status_code=500, detail="Product creation failed")
 
-    logger.info(f"Created product: {result.inserted_id}")
+    logger.info("Created product document: %s", result.inserted_id)
 
-    logger.info(f"Created product: {result.inserted_id}")
-
-    # Automatically create inventory for the new product
-    # try:
-    #     # Use the product's quantity as the initial inventory
-    #     inventory_created = await inventory_service.create_inventory(
-    #         product_id=str(result.inserted_id),
-    #         initial_quantity=product.quantity,
-    #         reorder_threshold=max(5, int(product.quantity * 0.1))  # 10% of quantity or at least 5
-    #     )
-
-    #     if not inventory_created:
-    #         logger.warning(f"Failed to create inventory for product {result.inserted_id}")
-    #         # Note: We're still returning the product even if inventory creation failed
-    #         # In a production system, you might want to handle this differently
-    # except Exception as e:
-    #     logger.error(f"Error creating inventory for product {result.inserted_id}: {str(e)}")
+    inventory_created = await inventory_service.create_inventory(
+        product_id=str(result.inserted_id),
+        initial_quantity=product.quantity,
+        reorder_threshold=max(1, int(product.quantity * 0.1)),
+    )
+    if not inventory_created:
+        delete_result = await db["products"].delete_one({"_id": result.inserted_id})
+        if delete_result.deleted_count != 1:
+            logger.critical(
+                "Could not compensate product %s after inventory failure",
+                result.inserted_id,
+            )
+        raise HTTPException(
+            status_code=503,
+            detail="Product could not be made sellable. Try again.",
+        )
 
     return created_product
 
@@ -115,7 +114,7 @@ async def update_product(
     product_id: str,
     product: ProductUpdate,
     db: AsyncIOMotorDatabase = Depends(get_db),
-    current_user: Dict[str, Any] = Depends(get_current_user),
+    current_user: Dict[str, Any] = Depends(require_admin),
 ):
     """
     Update a product by ID.
@@ -148,7 +147,7 @@ async def update_product(
 async def delete_product(
     product_id: str,
     db: AsyncIOMotorDatabase = Depends(get_db),
-    current_user: Dict[str, Any] = Depends(get_current_user),
+    current_user: Dict[str, Any] = Depends(require_admin),
 ):
     """
     Delete a product by ID.

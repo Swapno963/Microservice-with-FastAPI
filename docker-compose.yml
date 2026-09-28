@@ -6,12 +6,12 @@ services:
   nginx-gateway:
     image: nginx:latest
     ports:
-      - "80:80"
-      - "443:443" # For https
+      - "127.0.0.1:8080:80"
 
     volumes:
       - ./nginx/conf.d:/etc/nginx/conf.d:ro
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/static:/usr/share/nginx/html:ro
 
     depends_on:
       - product-service
@@ -31,7 +31,7 @@ services:
     depends_on:
       - zookeeper
     ports:
-      - "9092:9092"
+      - "127.0.0.1:9092:9092"
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
@@ -43,7 +43,7 @@ services:
     image: provectuslabs/kafka-ui
     container_name: kafka-ui
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8081:8080"
     restart: unless-stopped
     environment:
       - KAFKA_CLUSTERS_0_NAME=local
@@ -60,6 +60,10 @@ services:
     #   - "8080:8080"
     environment:
       - INVENTORY_SERVICE_URL=http://inventory-service:8002/api/v1
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:?JWT_SECRET_KEY is required}
+      - JWT_ALGORITHM=HS256
+      - INTERNAL_SERVICE_TOKEN=${INTERNAL_SERVICE_TOKEN:?INTERNAL_SERVICE_TOKEN is required}
+      - CORS_ORIGIN=http://localhost:8080
     env_file:
       - ./product-service/.env
     depends_on:
@@ -101,13 +105,20 @@ services:
     # ports:
     #   - "8001:8001"
     environment:
-      - USER_SERVICE_URL=http://user-service:8003/api/v1
+      - USER_SERVICE_URL=http://user-service:8003/api/v1/auth
       - PRODUCT_SERVICE_URL=http://product-service:8000/api/v1
       - INVENTORY_SERVICE_URL=http://inventory-service:8002/api/v1
+      - REDIS_URL=redis://redis:6379/0
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:?JWT_SECRET_KEY is required}
+      - JWT_ALGORITHM=HS256
+      - INTERNAL_SERVICE_TOKEN=${INTERNAL_SERVICE_TOKEN:?INTERNAL_SERVICE_TOKEN is required}
+      - CORS_ORIGIN=http://localhost:8080
     env_file:
       - ./order-service/.env
     depends_on:
       mongodb-order:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     networks:
       - microservice-network
@@ -118,6 +129,44 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+
+  order-worker:
+    build:
+      context: ./order-service
+      dockerfile: Dockerfile
+    command: ["python", "-m", "app.worker"]
+    environment:
+      - USER_SERVICE_URL=http://user-service:8003/api/v1/auth
+      - PRODUCT_SERVICE_URL=http://product-service:8000/api/v1
+      - INVENTORY_SERVICE_URL=http://inventory-service:8002/api/v1
+      - REDIS_URL=redis://redis:6379/0
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:?JWT_SECRET_KEY is required}
+      - JWT_ALGORITHM=HS256
+      - INTERNAL_SERVICE_TOKEN=${INTERNAL_SERVICE_TOKEN:?INTERNAL_SERVICE_TOKEN is required}
+    env_file:
+      - ./order-service/.env
+    depends_on:
+      redis:
+        condition: service_healthy
+      mongodb-order:
+        condition: service_healthy
+      inventory-service:
+        condition: service_healthy
+    networks:
+      - microservice-network
+    restart: unless-stopped
+
+  redis:
+    image: redis:7
+    networks:
+      - microservice-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
 
   mongodb-order:
     image: mongo:5.0
@@ -146,7 +195,11 @@ services:
     #   - "8002:8002"
     environment:
       - PRODUCT_SERVICE_URL=http://product-service:8000/api/v1
-      - DATABASE_URL=postgresql://postgres:postgres@postgres-inventory:5432/inventory_db
+      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres-inventory:5432/inventory_db
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:?JWT_SECRET_KEY is required}
+      - JWT_ALGORITHM=HS256
+      - INTERNAL_SERVICE_TOKEN=${INTERNAL_SERVICE_TOKEN:?INTERNAL_SERVICE_TOKEN is required}
+      - CORS_ORIGIN=http://localhost:8080
     env_file:
       - ./inventory-service/.env
     depends_on:
@@ -166,7 +219,7 @@ services:
     image: postgres:13
     environment:
       - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       - POSTGRES_DB=inventory_db
     volumes:
       - postgres_inventory_data:/var/lib/postgresql/data
@@ -191,7 +244,12 @@ services:
     # ports:
     #   - "8003:8003"
     environment:
-      - DATABASE_URL=postgresql://postgres:postgres@postgres-user:5432/user_db
+      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres-user:5432/user_db
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:?JWT_SECRET_KEY is required}
+      - JWT_ALGORITHM=HS256
+      - INTERNAL_SERVICE_TOKEN=${INTERNAL_SERVICE_TOKEN:?INTERNAL_SERVICE_TOKEN is required}
+      - SECURITY_PASSWORD_SALT=${SECURITY_PASSWORD_SALT:?SECURITY_PASSWORD_SALT is required}
+      - CORS_ORIGIN=http://localhost:8080
     env_file:
       - ./user-service/.env
     depends_on:
@@ -211,7 +269,7 @@ services:
     image: postgres:13
     environment:
       - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       - POSTGRES_DB=user_db
     volumes:
       - postgres_user_data:/var/lib/postgresql/data
@@ -232,10 +290,8 @@ services:
     build:
       context: ./notification-service
       dockerfile: Dockerfile
-    ports:
-      - "8004:8004"
     environment:
-      - DATABASE_URL=postgresql://postgres:postgres@postgres-notification:5432/notification_db
+      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres-notification:5432/notification_db
       - REDIS_URL=redis://redis:6379/0
       - NOTIFICATION_CHANNEL=inventory:low-stock
       - USER_SERVICE_URL=http://user-service:8003/api/v1
@@ -259,7 +315,7 @@ services:
     image: postgres:13
     environment:
       - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       - POSTGRES_DB=notification_db
     volumes:
       - postgres_notification_data:/var/lib/postgresql/data

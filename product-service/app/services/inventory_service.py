@@ -38,7 +38,10 @@ class InventoryServiceClient:
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 response = await client.post(
-                    f"{self.base_url}/inventory",
+                    f"{self.base_url}/inventory/",
+                    headers={
+                        "X-Service-Token": settings.INTERNAL_SERVICE_TOKEN,
+                    },
                     json={
                         "product_id": product_id,
                         "available_quantity": initial_quantity,

@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     DEBUG: bool = False
     PROJECT_NAME: str = "User Service"
     PORT: int = 8003
+    CORS_ORIGIN: str = "http://localhost:8080"
 
     # Database settings
     DATABASE_URL: PostgresDsn
@@ -20,6 +21,7 @@ class Settings(BaseSettings):
     # Security
     SECURITY_PASSWORD_SALT: str
     SECURITY_PASSWORD_HASH: str = "bcrypt"
+    INTERNAL_SERVICE_TOKEN: str
 
     class Config:
         env_file = ".env"

@@ -8,6 +8,15 @@ from app.core.config import settings
 logger = logging.getLogger(__name__)
 
 
+class InventoryCallError(Exception):
+    """Inventory HTTP call failed. The worker decides whether to retry."""
+
+    def __init__(self, status_code: int, detail: str):
+        super().__init__(detail)
+        self.status_code = status_code
+        self.detail = detail
+
+
 class InventoryServiceClient:
     """Client for interacting with the Inventory Service."""
 
@@ -47,37 +56,88 @@ class InventoryServiceClient:
             logger.error(f"Error checking inventory: {str(e)}")
             return False
 
-    @retry(stop=stop_after_attempt(3), wait=wait_fixed(1))
-    async def reserve_inventory(self, product_id: str, quantity: int) -> bool:
+    async def reserve_inventory(
+        self,
+        product_id: str,
+        quantity: int,
+        order_id: str,
+        expires_at=None,
+    ) -> dict:
         """
-        Reserve inventory for a product.
+        Reserve inventory for one order line.
 
-        Args:
-            product_id: The ID of the product
-            quantity: The quantity to reserve
-
-        Returns:
-            bool: True if reservation was successful, False otherwise
+        Raises InventoryCallError when the call does not succeed. The worker
+        owns retries, so this method does not retry on its own.
         """
+        payload = {
+            "product_id": product_id,
+            "quantity": quantity,
+            "order_id": order_id,
+        }
+        if expires_at is not None:
+            payload["expires_at"] = (
+                expires_at.isoformat()
+                if hasattr(expires_at, "isoformat")
+                else expires_at
+            )
+
         logger.info(
-            f"Reserving inventory for product {product_id}, quantity {quantity}"
+            "Reserving inventory for product %s quantity %s order %s",
+            product_id,
+            quantity,
+            order_id,
         )
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 response = await client.post(
                     f"{self.base_url}/inventory/reserve",
-                    json={"product_id": product_id, "quantity": quantity},
+                    headers={
+                        "X-Service-Token": settings.INTERNAL_SERVICE_TOKEN,
+                    },
+                    json=payload,
                 )
+        except httpx.RequestError as exc:
+            logger.error("Error reserving inventory: %s", exc)
+            raise InventoryCallError(0, str(exc)) from exc
 
-                if response.status_code == 200:
-                    result = response.json()
-                    return result.get("reserved", False)
-                else:
-                    logger.error(f"Inventory reservation failed: {response.text}")
-                    return False
-        except httpx.RequestError as e:
-            logger.error(f"Error reserving inventory: {str(e)}")
-            return False
+        if response.status_code == 200 and response.json().get("reserved"):
+            return response.json()
+
+        logger.error("Inventory reservation failed: %s", response.text)
+        raise InventoryCallError(response.status_code, response.text)
+
+    async def release_inventory(
+        self, product_id: str, quantity: int, order_id: str
+    ) -> dict:
+        """Release a hold for one order line. Repeat calls are safe."""
+        logger.info(
+            "Releasing inventory for product %s quantity %s order %s",
+            product_id,
+            quantity,
+            order_id,
+        )
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.post(
+                    f"{self.base_url}/inventory/release",
+                    headers={
+                        "X-Service-Token": settings.INTERNAL_SERVICE_TOKEN,
+                    },
+                    json={
+                        "product_id": product_id,
+                        "quantity": quantity,
+                        "order_id": order_id,
+                    },
+                )
+        except httpx.RequestError as exc:
+            logger.error("Error releasing inventory: %s", exc)
+            raise InventoryCallError(0, str(exc)) from exc
+
+        if response.status_code == 200:
+            return response.json()
+
+        logger.error("Inventory release failed: %s", response.text)
+        raise InventoryCallError(response.status_code, response.text)
 
 
 inventory_service = InventoryServiceClient()

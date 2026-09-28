@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     DEBUG: bool = False
     PROJECT_NAME: str = "Inventory Service"
     PORT: int = 8002
+    CORS_ORIGIN: str = "http://localhost:8080"
 
     # Database settings
     DATABASE_URL: PostgresDsn
@@ -22,8 +23,9 @@ class Settings(BaseSettings):
     RETRY_DELAY: int = 1  # seconds
 
     # JWT Auth settings (for testing/development)
-    SECRET_KEY: str = "development-secret-key"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+    JWT_SECRET_KEY: str
+    JWT_ALGORITHM: str = "HS256"
+    INTERNAL_SERVICE_TOKEN: str
 
     # Inventory settings
     LOW_STOCK_THRESHOLD: int = 5

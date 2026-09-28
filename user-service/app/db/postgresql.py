@@ -2,6 +2,7 @@ import logging
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy import text
 
 from app.core.config import settings
 
@@ -36,6 +37,13 @@ async def initialize_db():
     async with engine.begin() as conn:
         # Create tables if they don't exist
         await conn.run_sync(Base.metadata.create_all)
+        # Keep existing lab databases compatible with the authorization model.
+        await conn.execute(
+            text(
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS "
+                "is_admin BOOLEAN NOT NULL DEFAULT FALSE"
+            )
+        )
     logger.info("Database initialized")
 
 

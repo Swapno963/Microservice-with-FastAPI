@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     API_PREFIX: str = "/api/v1/products"
     DEBUG: bool = False
     PROJECT_NAME: str = "Product Service"
+    CORS_ORIGIN: str = "http://localhost:8080"
 
     # MongoDB settings
     MONGODB_URI: str = "mongodb://localhost:27017"
@@ -16,9 +17,10 @@ class Settings(BaseSettings):
     # Service URLs
     INVENTORY_SERVICE_URL: Optional[AnyHttpUrl] = None
 
-    # JWT Auth settings (for testing/development)
-    SECRET_KEY: str = "development-secret-key"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+    # Authentication shared with the user service.
+    JWT_SECRET_KEY: str
+    JWT_ALGORITHM: str = "HS256"
+    INTERNAL_SERVICE_TOKEN: str
 
     # Validate URLs are properly formatted
     @validator("INVENTORY_SERVICE_URL", pre=True)

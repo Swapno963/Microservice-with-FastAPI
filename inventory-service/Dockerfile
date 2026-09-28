@@ -14,17 +14,18 @@
 #     && rm -rf /var/lib/apt/lists/*
 
 
-FROM fastapi-base:1.0
+FROM python:3.10-slim
 WORKDIR /app
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app
 
 # Copy requirements and install dependencies
-RUN apt-get update && apt-get install -y curl
+RUN apt-get update && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-
-# Copy .env file
-COPY .env .
 
 # Copy application code
 COPY app/ app/

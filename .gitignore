@@ -6,6 +6,7 @@ __pycache__/
 *.log
 .envrc
 .env.bak
+.env
 *.sqlite3
 
 # VS Code
