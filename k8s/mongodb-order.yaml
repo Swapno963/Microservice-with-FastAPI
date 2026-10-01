@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongodb-order
+  namespace: ecommerce
+  labels:
+    app: mongodb-order
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mongodb-order
+  template:
+    metadata:
+      labels:
+        app: mongodb-order
+    spec:
+      containers:
+        - name: mongodb
+          image: mongo:5.0
+          ports:
+            - containerPort: 27017
+          env:
+            - name: MONGO_INITDB_DATABASE
+              value: "order_db"
+          volumeMounts:
+            - name: mongodb-order-storage
+              mountPath: /data/db
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "250m"
+          readinessProbe:
+            exec:
+              command:
+                - mongo
+                - --eval
+                - "db.adminCommand('ping')"
+            initialDelaySeconds: 10
+            periodSeconds: 10
+      volumes:
+        - name: mongodb-order-storage
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongodb-order
+  namespace: ecommerce
+spec:
+  selector:
+    app: mongodb-order
+  ports:
+    - port: 27017
+      targetPort: 27017
+  type: ClusterIP
