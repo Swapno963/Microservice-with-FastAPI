@@ -1,0 +1,50 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: ecommerce
+data:
+  # API Configuration
+  API_PREFIX: "/api/v1"
+  DEBUG: "False"
+
+  # JWT Configuration
+  JWT_SECRET_KEY: "your-super-secret-key-here-change-it-in-production"
+  JWT_ALGORITHM: "HS256"
+  ACCESS_TOKEN_EXPIRE_MINUTES: "30"
+  REFRESH_TOKEN_EXPIRE_DAYS: "7"
+
+  # Security
+  SECRET_KEY: "your-secret-key-here"
+  SECURITY_PASSWORD_SALT: "your-password-salt-change-it"
+  SECURITY_PASSWORD_HASH: "bcrypt"
+
+  # PostgreSQL Database URLs
+  USER_DATABASE_URL: "postgresql://postgres:postgres@postgres-user:5432/user_db"
+  INVENTORY_DATABASE_URL: "postgresql://postgres:postgres@postgres-inventory:5432/inventory_db"
+
+  # MongoDB Configuration
+  PRODUCT_MONGODB_URI: "mongodb://mongodb-product:27017"
+  PRODUCT_MONGODB_DB: "product_db"
+  ORDER_MONGODB_URI: "mongodb://mongodb-order:27017"
+  ORDER_MONGODB_DB: "order_db"
+
+  # Service URLs (inter-service communication)
+  USER_SERVICE_URL: "http://user-service:8003/api/v1"
+  PRODUCT_SERVICE_URL: "http://product-service:8000/api/v1"
+  ORDER_SERVICE_URL: "http://order-service:8001/api/v1"
+  INVENTORY_SERVICE_URL: "http://inventory-service:8002/api/v1"
+
+  # Inventory Configuration
+  LOW_STOCK_THRESHOLD: "5"
+  ENABLE_NOTIFICATIONS: "true"
+
+  # Retry Configuration
+  MAX_RETRIES: "3"
+  RETRY_DELAY: "1"
+
+  # Ports
+  USER_SERVICE_PORT: "8003"
+  PRODUCT_SERVICE_PORT: "8000"
+  ORDER_SERVICE_PORT: "8001"
+  INVENTORY_SERVICE_PORT: "8002"
