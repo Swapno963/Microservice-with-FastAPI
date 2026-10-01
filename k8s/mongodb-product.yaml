@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongodb-product
+  namespace: ecommerce
+  labels:
+    app: mongodb-product
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mongodb-product
+  template:
+    metadata:
+      labels:
+        app: mongodb-product
+    spec:
+      containers:
+        - name: mongodb
+          image: mongo:5.0
+          ports:
+            - containerPort: 27017
+          env:
+            - name: MONGO_INITDB_DATABASE
+              value: "product_db"
+          volumeMounts:
+            - name: mongodb-product-storage
+              mountPath: /data/db
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "250m"
+          readinessProbe:
+            exec:
+              command:
+                - mongo
+                - --eval
+                - "db.adminCommand('ping')"
+            initialDelaySeconds: 10
+            periodSeconds: 10
+      volumes:
+        - name: mongodb-product-storage
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongodb-product
+  namespace: ecommerce
+spec:
+  selector:
+    app: mongodb-product
+  ports:
+    - port: 27017
+      targetPort: 27017
+  type: ClusterIP
