@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: inventory-service
-          image: <DOCKER_USERNAME>/inventory-service:latest
+          image: swapno/inventory-service:latest
           ports:
             - containerPort: 8002
           env:
