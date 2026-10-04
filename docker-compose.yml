@@ -19,6 +19,28 @@ services:
     networks:
       - microservice-network
 
+  # React shop. Built from the repo root so the image can copy the Nginx API proxy.
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    ports:
+      - "127.0.0.1:3000:80"
+    depends_on:
+      - product-service
+      - order-service
+      - inventory-service
+      - user-service
+    networks:
+      - microservice-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://localhost/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
 
 
   # Product Service and its database
