@@ -79,3 +79,8 @@ logs/
 *.key
 *.crt
 *.csr
+
+
+node_modules
+dist
+.DS_Store

@@ -35,3 +35,9 @@ kubectl apply -f k8s/inventory-service.yaml
 Deploy the Nginx Gateway
 kubectl apply -f k8s/nginx-configmap.yaml
 kubectl apply -f k8s/nginx-gateway.yaml
+
+Build and deploy the React frontend. The image serves the built app and proxies /api to the services above.
+
+docker build -f frontend/Dockerfile -t swapno/shopverse-frontend:latest .
+docker push swapno/shopverse-frontend:latest
+kubectl apply -f k8s/frontend.yaml
