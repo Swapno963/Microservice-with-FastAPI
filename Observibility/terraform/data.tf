@@ -4,7 +4,7 @@ data "aws_eks_cluster" "this" {
   name = var.cluster_name
 }
 
-data "aws_iam_openid_connect_provider" "eks" {
+data "tls_certificate" "eks" {
   url = data.aws_eks_cluster.this.identity[0].oidc[0].issuer
 }
 
@@ -36,7 +36,7 @@ data "aws_resourcegroupstaggingapi_resources" "frontend_target_groups" {
 }
 
 locals {
-  oidc_host      = replace(data.aws_iam_openid_connect_provider.eks.url, "https://", "")
+  oidc_host      = replace(aws_iam_openid_connect_provider.eks.url, "https://", "")
   node_asg_names = toset(data.aws_autoscaling_groups.nodes.names)
 
   frontend_alb_arns   = sort(data.aws_lbs.frontend.arns)

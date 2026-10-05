@@ -5,7 +5,7 @@ data "aws_iam_policy_document" "lb_controller_assume" {
 
     principals {
       type        = "Federated"
-      identifiers = [data.aws_iam_openid_connect_provider.eks.arn]
+      identifiers = [aws_iam_openid_connect_provider.eks.arn]
     }
 
     condition {
@@ -44,7 +44,7 @@ data "aws_iam_policy_document" "cloudwatch_agent_assume" {
 
     principals {
       type        = "Federated"
-      identifiers = [data.aws_iam_openid_connect_provider.eks.arn]
+      identifiers = [aws_iam_openid_connect_provider.eks.arn]
     }
 
     condition {

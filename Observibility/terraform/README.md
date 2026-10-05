@@ -11,21 +11,7 @@ Defaults match the cluster in `k8s/DEPLOY-INSTRUCTIONS.MD`:
 
 ## Prerequisite
 
-The cluster needs an IAM OIDC provider so the controller and the CloudWatch agent can use IRSA. Confirm it:
-
-```bash
-aws eks describe-cluster --name todo-cluster --region ap-southeast-1 \
-  --query cluster.identity.oidc.issuer
-```
-
-If that query returns `null`, create the provider before `terraform apply`:
-
-```bash
-eksctl utils associate-iam-oidc-provider \
-  --cluster todo-cluster \
-  --region ap-southeast-1 \
-  --approve
-```
+Terraform creates the IAM OIDC provider from the cluster issuer. eksctl creates the issuer on the cluster, but it does not always register that issuer in IAM. The first apply registers it so the controller and CloudWatch agent can use IRSA.
 
 The public subnets must be tagged so the controller can place an internet-facing load balancer. eksctl does this. Confirm at least one subnet has both tags:
 
