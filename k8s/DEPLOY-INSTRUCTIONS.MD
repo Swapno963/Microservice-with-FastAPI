@@ -75,11 +75,15 @@ kubectl apply -f k8s/redis-service.yaml
 kubectl apply -f k8s/frontend.yaml
 
 
-### Wait for the LoadBalancer to get an external hostname
-kubectl get svc frontend -n shopverce -w
+### Install the AWS Load Balancer Controller before this Ingress can get an address.
+### See Observibility/terraform/README.md, then:
+# terraform -chdir=Observibility/terraform apply
 
-### Once the EXTERNAL-IP column changes from <pending> to a hostname, press Ctrl+C and save it:
-export APP_URL=$(kubectl get svc frontend -n shopverce -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+### Wait for the Application Load Balancer hostname
+kubectl get ingress frontend -n shopverce -w
+
+### Once the ADDRESS column is set, press Ctrl+C and save it:
+export APP_URL=$(kubectl get ingress frontend -n shopverce -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
 echo "Application URL: http://$APP_URL"
 
 
@@ -116,3 +120,9 @@ kubectl apply -f k8s/frontend.yaml
 
 ## Restart services
 kubectl rollout restart deployment -n shopverce 
+
+
+
+docker compose exec postgres-user psql -U postgres -d user_db -c \
+  "UPDATE users SET is_admin = TRUE WHERE email = 'swapno@gmail.com';"
+UPDATE 1
