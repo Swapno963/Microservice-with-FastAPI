@@ -26,11 +26,6 @@ spec:
                 configMapKeyRef:
                   name: app-config
                   key: USER_DATABASE_URL
-            - name: API_PREFIX
-              valueFrom:
-                configMapKeyRef:
-                  name: app-config
-                  key: API_PREFIX
             - name: DEBUG
               valueFrom:
                 configMapKeyRef:
@@ -46,6 +41,11 @@ spec:
                 configMapKeyRef:
                   name: app-config
                   key: JWT_SECRET_KEY
+            - name: INTERNAL_SERVICE_TOKEN
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: INTERNAL_SERVICE_TOKEN
             - name: JWT_ALGORITHM
               valueFrom:
                 configMapKeyRef:

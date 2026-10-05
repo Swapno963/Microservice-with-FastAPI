@@ -66,6 +66,7 @@ kubectl apply -f k8s/postgres-user.yaml
 kubectl apply -f k8s/postgres-inventory.yaml
 kubectl apply -f k8s/mongodb-product.yaml
 kubectl apply -f k8s/mongodb-order.yaml
+kubectl apply -f k8s/redis-service.yaml
 
 
 
@@ -97,3 +98,21 @@ Build and deploy the React frontend. The image serves the built app and proxies 
 docker build -f frontend/Dockerfile -t swapno/shopverse-frontend:latest .
 docker push swapno/shopverse-frontend:latest
 kubectl apply -f k8s/frontend.yaml
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Restart services
+kubectl rollout restart deployment -n shopverce 
