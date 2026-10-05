@@ -18,11 +18,13 @@ DATABASE_URL = str(settings.DATABASE_URL)
 if DATABASE_URL.startswith("postgresql://"):
     DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
 
-# Create async engine
+# Same idle-connection handling as the user service.
 engine = create_async_engine(
     DATABASE_URL,
     echo=settings.DEBUG,
     future=True,
+    pool_pre_ping=True,
+    pool_recycle=300,
 )
 
 # Create async session factory

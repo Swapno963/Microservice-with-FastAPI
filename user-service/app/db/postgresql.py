@@ -18,11 +18,15 @@ DATABASE_URL = str(settings.DATABASE_URL)
 if DATABASE_URL.startswith("postgresql://"):
     DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
 
-# Create async engine
+# Create async engine. pool_pre_ping drops connections closed by Postgres or
+# the cloud network while the pod is idle. pool_recycle stays under typical
+# load-balancer idle timeouts so a checked-out connection is still open.
 engine = create_async_engine(
     DATABASE_URL,
     echo=settings.DEBUG,
     future=True,
+    pool_pre_ping=True,
+    pool_recycle=300,
 )
 
 # Create async session factory
