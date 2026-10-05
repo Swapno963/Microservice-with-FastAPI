@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: app-config
-  namespace: ecommerce
+  namespace: shopverce
 data:
   # API Configuration
   API_PREFIX: "/api/v1"
@@ -10,6 +10,7 @@ data:
 
   # JWT Configuration
   JWT_SECRET_KEY: "your-super-secret-key-here-change-it-in-production"
+  
   JWT_ALGORITHM: "HS256"
   ACCESS_TOKEN_EXPIRE_MINUTES: "30"
   REFRESH_TOKEN_EXPIRE_DAYS: "7"

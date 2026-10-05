@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: user-service
-  namespace: ecommerce
+  namespace: shopverce
   labels:
     app: user-service
 spec:
@@ -102,7 +102,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: user-service
-  namespace: ecommerce
+  namespace: shopverce
 spec:
   selector:
     app: user-service
