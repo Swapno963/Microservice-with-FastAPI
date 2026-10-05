@@ -8,6 +8,21 @@ data "tls_certificate" "eks" {
   url = data.aws_eks_cluster.this.identity[0].oidc[0].issuer
 }
 
+data "aws_instances" "nodes" {
+  instance_tags = {
+    "eks:cluster-name"   = var.cluster_name
+    "eks:nodegroup-name" = var.nodegroup_name
+  }
+
+  instance_state_names = ["running"]
+}
+
+data "aws_instance" "node" {
+  for_each = toset(data.aws_instances.nodes.ids)
+
+  instance_id = each.value
+}
+
 data "aws_autoscaling_groups" "nodes" {
   filter {
     name   = "tag:eks:cluster-name"
