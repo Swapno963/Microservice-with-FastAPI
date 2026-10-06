@@ -126,3 +126,28 @@ kubectl rollout restart deployment -n shopverce
 docker compose exec postgres-user psql -U postgres -d user_db -c \
   "UPDATE users SET is_admin = TRUE WHERE email = 'swapno@gmail.com';"
 UPDATE 1
+
+
+
+
+
+
+
+To destroy all
+1. Destroy the CloudWatch / ALB Controller Terraform resources
+terraform -chdir=Observibility/terraform destroy
+
+2. Delete the Kubernetes workloads
+kubectl delete namespace shopverce
+
+
+3. Delete the EKS node group
+eksctl delete nodegroup \
+  --cluster=todo-cluster \
+  --name=todo-nodes \
+  --region=ap-southeast-1
+
+4. Delete the EKS cluster
+eksctl delete cluster \
+  --name=todo-cluster \
+  --region=ap-southeast-1

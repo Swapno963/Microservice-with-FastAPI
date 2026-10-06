@@ -54,6 +54,17 @@ locals {
   oidc_host      = replace(aws_iam_openid_connect_provider.eks.url, "https://", "")
   node_asg_names = toset(data.aws_autoscaling_groups.nodes.names)
 
+  # Contract for amazon-cloudwatch-observability v6.7.0-eksbuild.1 on EKS 1.35.
+  # `aws eks describe-addon-configuration` returns one pod identity:
+  #   serviceAccount = cloudwatch-agent
+  #   recommendedManagedPolicies = CloudWatchAgentServerPolicy
+  # The add-on creates that account in amazon-cloudwatch. configuration_values
+  # cannot rename it. Container logs stay off, so Fluent Bit is not installed.
+  cloudwatch_addon_version         = "v6.7.0-eksbuild.1"
+  cloudwatch_namespace             = "amazon-cloudwatch"
+  cloudwatch_agent_service_account = "cloudwatch-agent"
+  cloudwatch_agent_irsa_subject    = "system:serviceaccount:${local.cloudwatch_namespace}:${local.cloudwatch_agent_service_account}"
+
   frontend_alb_arns   = sort(data.aws_lbs.frontend.arns)
   frontend_alb_suffix = length(local.frontend_alb_arns) > 0 ? regex("loadbalancer/(.+)$", local.frontend_alb_arns[0])[0] : null
 

@@ -50,7 +50,7 @@ data "aws_iam_policy_document" "cloudwatch_agent_assume" {
     condition {
       test     = "StringEquals"
       variable = "${local.oidc_host}:sub"
-      values   = ["system:serviceaccount:amazon-cloudwatch:cloudwatch-agent"]
+      values   = [local.cloudwatch_agent_irsa_subject]
     }
 
     condition {

@@ -1,6 +1,7 @@
 resource "aws_eks_addon" "cloudwatch_observability" {
   cluster_name                = var.cluster_name
   addon_name                  = "amazon-cloudwatch-observability"
+  addon_version               = local.cloudwatch_addon_version
   service_account_role_arn    = aws_iam_role.cloudwatch_agent.arn
   resolve_conflicts_on_create = "OVERWRITE"
   resolve_conflicts_on_update = "OVERWRITE"

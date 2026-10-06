@@ -2,8 +2,6 @@
 
 ## Goal
 
-The goal of this project is not simply to "add monitoring".
-
 The goal is to build a production-oriented observability system for an
 EKS-based microservices application that allows us to answer three questions:
 
@@ -46,9 +44,11 @@ The observability stack will combine:
               └───────────────────────────┤
                                           ↓
                                        Grafana
-````
+```
 
 ---
+
+
 
 # 2. Why Two Monitoring Systems?
 
@@ -90,9 +90,15 @@ observability problem.
 
 ---
 
+
+
 # 3. Responsibility Breakdown
 
+
+
 ## Task 1 — AWS CloudWatch
+
+
 
 ### Responsibility
 
@@ -100,12 +106,14 @@ Monitor the AWS/EKS infrastructure layer.
 
 ### What we monitor
 
-* EKS infrastructure
-* EC2/node metrics
-* AWS Load Balancer metrics
-* AWS service health/events
-* Infrastructure-level logs where appropriate
-* AWS alarms
+- EKS infrastructure
+- EC2/node metrics
+- AWS Load Balancer metrics
+- AWS service health/events
+- Infrastructure-level logs where appropriate
+- AWS alarms
+
+
 
 ### Why?
 
@@ -128,6 +136,8 @@ Application is slow
             CloudWatch
 ```
 
+
+
 ### Production value
 
 This demonstrates that we understand AWS-native operations rather than
@@ -135,7 +145,11 @@ only installing open-source monitoring tools.
 
 ---
 
+
+
 # 4. Task 2 — OpenTelemetry
+
+
 
 ## Responsibility
 
@@ -154,13 +168,17 @@ OpenTelemetry instrumentation
 OTel Collector
 ```
 
+
+
 ### Telemetry types
 
 OpenTelemetry will handle:
 
-* Traces
-* Metrics
-* Logs where appropriate
+- Traces
+- Metrics
+- Logs where appropriate
+
+
 
 ### Why?
 
@@ -184,7 +202,11 @@ This is particularly important for a microservices architecture.
 
 ---
 
+
+
 # 5. Task 3 — Prometheus
+
+
 
 ## Responsibility
 
@@ -202,6 +224,8 @@ Memory usage
 Pod restarts
 Container resource usage
 ```
+
+
 
 ### Example question
 
@@ -231,7 +255,11 @@ problem.
 
 ---
 
+
+
 # 6. Task 4 — Loki
+
+
 
 ## Responsibility
 
@@ -257,17 +285,19 @@ Pod
     Grafana
 ```
 
+
+
 ### Why?
 
 Pods are temporary.
 
 A Pod can disappear because of:
 
-* Deployment
-* CrashLoopBackOff
-* Rescheduling
-* Node failure
-* Scaling
+- Deployment
+- CrashLoopBackOff
+- Rescheduling
+- Node failure
+- Scaling
 
 Therefore, application logs should not depend on the lifetime of an
 individual Pod.
@@ -285,7 +315,11 @@ and investigate application failures centrally.
 
 ---
 
+
+
 # 7. Task 5 — Tempo
+
+
 
 ## Responsibility
 
@@ -302,6 +336,8 @@ OpenTelemetry
       ↓
    Grafana
 ```
+
+
 
 ### Why?
 
@@ -320,6 +356,8 @@ Traces tell us:
 This is especially valuable in microservices.
 
 ---
+
+
 
 # 8. KILLER FEATURE — End-to-End Distributed Tracing
 
@@ -366,6 +404,8 @@ order-service
 
 ---
 
+
+
 # 9. Killer Feature — Failure Investigation
 
 We should intentionally demonstrate a failure scenario.
@@ -408,7 +448,11 @@ This demonstrates actual observability rather than just dashboards.
 
 ---
 
+
+
 # 10. Grafana
+
+
 
 ## Responsibility
 
@@ -433,6 +477,8 @@ Latency
 Active Requests
 ```
 
+
+
 ### Kubernetes Dashboard
 
 ```text
@@ -443,6 +489,8 @@ Deployment Availability
 Node Resource Usage
 ```
 
+
+
 ### Service Dashboard
 
 ```text
@@ -452,6 +500,8 @@ inventory-service
 user-service
 ```
 
+
+
 ### Database Dashboard
 
 ```text
@@ -460,6 +510,8 @@ MongoDB
 ```
 
 ---
+
+
 
 # 11. Grafana Correlation
 
@@ -497,6 +549,8 @@ This creates a complete troubleshooting workflow.
 
 ---
 
+
+
 # 12. Alerts
 
 Monitoring without alerting is incomplete.
@@ -505,28 +559,34 @@ We should create alerts for important operational conditions.
 
 ## Application
 
-* High HTTP 5xx rate
-* High request latency
-* Service unavailable
+- High HTTP 5xx rate
+- High request latency
+- Service unavailable
+
+
 
 ## Kubernetes
 
-* Pod CrashLoopBackOff
-* Pod restart increase
-* Deployment unavailable
-* Node resource exhaustion
+- Pod CrashLoopBackOff
+- Pod restart increase
+- Deployment unavailable
+- Node resource exhaustion
+
+
 
 ## Infrastructure
 
-* High CPU
-* High memory
-* Disk pressure
+- High CPU
+- High memory
+- Disk pressure
+
+
 
 ## Database
 
-* High connection usage
-* Database unavailable
-* Resource exhaustion
+- High connection usage
+- Database unavailable
+- Resource exhaustion
 
 Alerts should be actionable.
 
@@ -534,16 +594,20 @@ Avoid creating alerts for every metric.
 
 ---
 
+
+
 # 13. Implementation Tasks
 
 The implementation should be done in this order.
 
 ## Phase 1 — AWS Monitoring
 
-* Configure CloudWatch visibility
-* Monitor EKS/node infrastructure
-* Monitor Load Balancer
-* Configure relevant AWS alarms
+- Configure CloudWatch visibility
+- Monitor EKS/node infrastructure
+- Monitor Load Balancer
+- Configure relevant AWS alarms
+
+
 
 ### Result
 
@@ -551,28 +615,34 @@ AWS infrastructure becomes observable.
 
 ---
 
+
+
 ## Phase 2 — Application Instrumentation
 
 Add OpenTelemetry instrumentation to:
 
-* user-service
-* product-service
-* inventory-service
-* order-service
+- user-service
+- product-service
+- inventory-service
+- order-service
 
 Capture:
 
-* HTTP requests
-* HTTP response status
-* request duration
-* service-to-service calls
-* database operations where supported
+- HTTP requests
+- HTTP response status
+- request duration
+- service-to-service calls
+- database operations where supported
+
+
 
 ### Result
 
 Applications produce telemetry.
 
 ---
+
+
 
 ## Phase 3 — OpenTelemetry Collector
 
@@ -592,11 +662,15 @@ Metrics → Prometheus
 Logs    → Loki
 ```
 
+
+
 ### Result
 
 Telemetry is collected centrally.
 
 ---
+
+
 
 ## Phase 4 — Prometheus
 
@@ -604,9 +678,9 @@ Deploy/configure Prometheus.
 
 Collect:
 
-* Kubernetes metrics
-* Application metrics
-* Service metrics
+- Kubernetes metrics
+- Application metrics
+- Service metrics
 
 Create recording rules where useful.
 
@@ -616,21 +690,27 @@ We can monitor application and Kubernetes behavior quantitatively.
 
 ---
 
+
+
 ## Phase 5 — Loki
 
 Deploy Loki and configure log collection.
 
 Collect:
 
-* Application logs
-* Container logs
-* Kubernetes workload logs
+- Application logs
+- Container logs
+- Kubernetes workload logs
+
+
 
 ### Result
 
 Logs survive Pod lifecycle changes and can be searched centrally.
 
 ---
+
+
 
 ## Phase 6 — Tempo
 
@@ -644,6 +724,8 @@ Distributed traces become available.
 
 ---
 
+
+
 ## Phase 7 — Grafana
 
 Connect:
@@ -656,13 +738,15 @@ Tempo
 
 Create dashboards for:
 
-* Application
-* Kubernetes
-* Services
-* Infrastructure
-* Database
+- Application
+- Kubernetes
+- Services
+- Infrastructure
+- Database
 
 ---
+
+
 
 ## Phase 8 — Observability Correlation
 
@@ -681,6 +765,8 @@ can be followed during troubleshooting.
 This is a key production-oriented feature.
 
 ---
+
+
 
 # 14. Final Architecture
 
@@ -720,9 +806,12 @@ AWS Infrastructure ─────→ CloudWatch
 
 ---
 
+
+
 # 15. Why This Architecture?
 
 Each component has a specific responsibility.
+
 
 | Tool          | Responsibility                  | Main Question                                   |
 | ------------- | ------------------------------- | ----------------------------------------------- |
@@ -733,11 +822,16 @@ Each component has a specific responsibility.
 | Tempo         | Traces                          | Where did the request go and where was it slow? |
 | Grafana       | Visualization/correlation       | How do we investigate the incident?             |
 
+
 The architecture avoids using one tool for everything.
 
 ---
 
+
+
 # 16. Beginner vs Experienced vs Production Approach
+
+
 
 ## Beginner
 
@@ -750,6 +844,8 @@ Basic Grafana dashboard
 Good for learning basic monitoring.
 
 ---
+
+
 
 ## Experienced
 
@@ -764,6 +860,8 @@ Tempo
 Provides complete application observability.
 
 ---
+
+
 
 ## Production-oriented
 
@@ -795,37 +893,45 @@ system based on operational requirements.
 
 ---
 
+
+
 # 17. Portfolio / Resume Value
 
 The final project should demonstrate:
 
 ### Infrastructure
 
-* AWS
-* EKS
-* Kubernetes
-* Docker
+- AWS
+- EKS
+- Kubernetes
+- Docker
+
+
 
 ### Observability
 
-* OpenTelemetry
-* Prometheus
-* Grafana
-* Loki
-* Tempo
-* CloudWatch
+- OpenTelemetry
+- Prometheus
+- Grafana
+- Loki
+- Tempo
+- CloudWatch
+
+
 
 ### Engineering Skills
 
-* Distributed tracing
-* Centralized logging
-* Metrics
-* Alerting
-* Failure investigation
-* Kubernetes troubleshooting
-* Service-to-service observability
+- Distributed tracing
+- Centralized logging
+- Metrics
+- Alerting
+- Failure investigation
+- Kubernetes troubleshooting
+- Service-to-service observability
 
 ---
+
+
 
 # 18. Resume-Level Outcome
 
@@ -848,23 +954,27 @@ Instead, it demonstrates:
 
 ---
 
+
+
 # 19. Definition of Done
 
 The observability implementation is complete when we can demonstrate:
 
-* [ ] AWS/EKS infrastructure visible in CloudWatch
-* [ ] Kubernetes metrics available
-* [ ] Application metrics available
-* [ ] Centralized application logs available
-* [ ] Distributed traces available
-* [ ] Grafana connected to Prometheus
-* [ ] Grafana connected to Loki
-* [ ] Grafana connected to Tempo
-* [ ] Alerts configured for important failures
-* [ ] Metrics → traces correlation works
-* [ ] Traces → logs correlation works
-* [ ] At least one complete request spans multiple services
-* [ ] A deliberate failure can be investigated end-to-end
+- [ ] AWS/EKS infrastructure visible in CloudWatch
+- [ ] Kubernetes metrics available
+- [ ] Application metrics available
+- [ ] Centralized application logs available
+- [ ] Distributed traces available
+- [ ] Grafana connected to Prometheus
+- [ ] Grafana connected to Loki
+- [ ] Grafana connected to Tempo
+- [ ] Alerts configured for important failures
+- [ ] Metrics → traces correlation works
+- [ ] Traces → logs correlation works
+- [ ] At least one complete request spans multiple services
+- [ ] A deliberate failure can be investigated end-to-end
+
+
 
 ## Final Demonstration
 
@@ -895,3 +1005,82 @@ The final demo should show:
 This is the core demonstration of the project's observability capability.
 
 ```
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+3. Walk Terraform in the order terraform apply runs.
+
+Stay inside Observibility/terraform/ and open the files in this order:
+
+File	What to say
+variables.tf
+It does not create the cluster. It attaches to the existing eksctl cluster todo-cluster in ap-southeast-1.
+oidc.tf
+eksctl created an OIDC issuer, but IAM did not have a provider for it. The first apply failed with “OIDC provider not found,” so Terraform now registers that issuer. The load balancer controller and the CloudWatch agent then assume roles through that provider.
+iam.tf
+Two IRSA roles: one for the AWS Load Balancer Controller, one for the CloudWatch agent (CloudWatchAgentServerPolicy).
+load_balancer_controller.tf
+Helm installs the controller into kube-system.
+k8s/frontend.yaml
+The frontend Service is ClusterIP. The Ingress, class alb, is what creates the internet-facing Application Load Balancer. The old Service was a Classic load balancer, which does not emit ALB metrics.
+logs.tf
+Log group /aws/eks/todo-cluster/cluster, kept for 7 days. Control plane logs enabled: api, audit, authenticator, controllerManager, scheduler.
+alarms_nodes.tf
+EC2 alarms on the node group: CPU above 80%, status check failed, attached EBS status check failed. Container Insights alarms per node: memory, filesystem, disk pressure, memory pressure, and node not Ready.
+alarms_alb.tf
+After the Ingress exists, a second apply binds alarms to that ALB: target 5xx, ALB 5xx, latency over 1 second, unhealthy targets, and request-count anomaly detection.
+sns.tf and events.tf
+Every alarm publishes to shopverce-infra-alarms. EventBridge also sends AWS Health events for EKS, EC2, and the load balancer, plus node launch or terminate failures.
+4. Tell the alarm bug as a design constraint, not a war story.
+
+alarms_nodes.tf used to use a CloudWatch SEARCH expression to take the max across all nodes. Apply failed twice: Period must not be null, then SEARCH is not supported on Metric Alarms. The fix is one alarm per running instance, using dimensions ClusterName, InstanceId, and NodeName. If the node group scales, Terraform has to be applied again so new nodes get alarms. That is a real limitation; mention it before they ask.
+
+5. Close with the path of one user request.
+
+A browser hits the ALB. The ALB sends the request to the frontend pods. Nginx in the frontend proxies /api/v1/auth to the user service, and the other /api/v1/... paths to product, order, and inventory. CloudWatch can tell you the ALB returned 5xx, a target went unhealthy, or a node ran out of memory. It cannot tell you that order-service waited on inventory-service. That second question is what the trace in reason.md is for, and that part is still the design.
+
+6. If they ask you to prove it, use these three checks.
+
+kubectl get ingress frontend -n shopverce shows the ALB hostname.
+CloudWatch log group /aws/eks/todo-cluster/cluster.
+Alarms named shopverce-alb-* and shopverce-node-*, plus the SNS topic shopverce-infra-alarms.
+The git history on main matches this walk: the docs commit, the Ingress commit, the first Terraform commit, the OIDC fix, then the per-node alarm fix. git log -- Observibility k8s/frontend.yaml is enough to rehearse that sequence.
